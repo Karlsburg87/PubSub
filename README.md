@@ -1,3 +1,5 @@
+[![Run on Repl.it](https://repl.it/badge/github/CDennis-CR/PubSub)](https://repl.it/github/CDennis-CR/PubSub)
+
 # PubSub
 An RESTful HTTP service to make signing up for event streams easy and open to anyone able to access the URI endpoint. No access permissions barriers or web UI required. Useful for passing in things like uptime stats.
 
