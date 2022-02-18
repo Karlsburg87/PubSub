@@ -6,7 +6,7 @@ import (
 	"time"
 )
 
-//CreateServer provides the standard HTTP server for the application. 
+//CreateServer provides the standard HTTP server for the application.
 // Intended for use with CreateMux
 func CreateServer(port int, mux *http.ServeMux) *http.Server {
 	return &http.Server{

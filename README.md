@@ -1,5 +1,4 @@
-[![Run on Repl.it](https://repl.it/badge/github/CDennis-CR/PubSub)](https://repl.it/github/CDennis-CR/PubSub)
-
+[![Run on Repl.it](https://repl.it/badge/github/CDennis-CR/PubSub)](https://repl.it/github/CDennis-CR/PubSub) 
 [![Go Report Card](https://goreportcard.com/badge/github.com/CDennis-CR/PubSub)](https://goreportcard.com/report/github.com/CDennis-CR/PubSub)
 
 # PubSub
