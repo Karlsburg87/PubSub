@@ -23,6 +23,9 @@ func getReady(superUsername,superUserpassword string)(*PubSub){
     Users: users,
     mu: &sync.Mutex{},
   }
+  //start regular task ticks
+  go pubsub.metranome()
+
   return pubsub
 }
 

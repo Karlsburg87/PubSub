@@ -3,8 +3,9 @@ package pubsub
 import (
 	"bytes"
 	"fmt"
-  "log"
+	"log"
 	"net/http"
+	"time"
 )
 
 //GetUser maintains the user list
@@ -20,9 +21,10 @@ func (pubsub *PubSub)GetUser(username,password string)(*User,error){
     if rec,ok:=pubsub.Users[user.UsernameHash];ok{//username found so check password...
       if user.PasswordHash == rec.PasswordHash{//password correct so return User
         return rec,nil
-      }else{//password incorrect return error
-        return nil,fmt.Errorf("User already exists. Please enter correct credentials to login or select a new username to create a new user.")
       }
+      //password incorrect return error
+      return nil,fmt.Errorf("User already exists. Please enter correct credentials to login or select a new username to create a new user.")
+      
     }else{//create user if no username exists
         pubsub.mu.Lock()
         pubsub.Users[user.UsernameHash] = user
@@ -36,9 +38,8 @@ func (pubsub *PubSub)GetUser(username,password string)(*User,error){
 func(pubsub *PubSub)GetTopic(topicName string, user *User)(*Topic,error){
   if topic,ok:= pubsub.Topics[topicName];ok{
     return topic,nil
-  }else{
-    return pubsub.CreateTopic(topicName,user)
   }
+  return pubsub.CreateTopic(topicName,user)
 }
 
 //CreateTopic creates a topic 
@@ -83,7 +84,7 @@ func (pubsub *PubSub) PushWebhooks()error{
             Message: message,
           }
           parcel,err:=msgParcel.toJSON()
-          if err!=nil{return err}
+          if err!=nil{return err}//?echo err and continue?
          resp,err:= http.Post(subscriber.PushURL.String(),"application/json",bytes.NewReader(parcel))
          if err!=nil || (resp.StatusCode!=200 && resp.StatusCode!=201){
            log.Println(fmt.Errorf("Could not deliver msg: %v",err))
@@ -99,4 +100,19 @@ func (pubsub *PubSub) PushWebhooks()error{
     }
   }
   return nil
+}
+
+//metranome initiates regularly occuring activities
+// such as fullfilling push subscriptions, backing up
+// and garbage collection of messages
+func (pubsub *PubSub)metranome(){
+  t:=time.Tick(1 * time.Second)
+  
+  for range t{
+    //to regularly occurring tasks
+    //todo add tasks here that run every second
+    if err:=pubsub.PushWebhooks();err!=nil{
+      log.Println(err)//this needs to be logged and picked up be error managment
+    }
+  }
 }

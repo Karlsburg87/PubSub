@@ -8,7 +8,7 @@ type CreateUserResp struct{
   UUID string   `json:"user_id,omitempty"`
 }
 
-//MessageReadResp is the response from Message orientated requests
+//MessageResp is the response from Message orientated requests
 type MessageResp struct{
   Error string    `json:"error,omitempty"`
   Topic string    `json:"topic_id,omitempty"`

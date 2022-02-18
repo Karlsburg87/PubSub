@@ -57,33 +57,22 @@ func getHTTPData(req *http.Request)(IncomingReq,error){
   //add URL queries
   query:=req.URL.Query()
   for k,v:=range query{
+    if v[0] ==""{continue}
     switch strings.ToLower(k){
       case "username":
-       if v[0] !=""{
          m.Username = v[0]
-       }
       case "password":
-        if v[0] !=""{
           m.Password = v[0]
-        }
       case "message":
-        if v[0] !=""{
           m.Message = v[0]
-        }
       case "topic":
-        if v[0] !=""{
           m.Topic = v[0]
-        }
       case "webhook_url":
-        if v[0] !=""{
           m.WebhookURL = v[0]
-        }
-        case "message_id":
-        if v[0] !=""{
-          m.MessageID,err = strconv.Atoi(v[0])
-          if err!=nil{
-            return IncomingReq{},err
-          }
+      case "message_id":
+        m.MessageID,err = strconv.Atoi(v[0])
+        if err!=nil{
+          return IncomingReq{},err
         }
     }
   }
