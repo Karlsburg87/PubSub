@@ -16,7 +16,7 @@ Acknowledgement based system to ensure message delivery guarentees are met.
 **Not yet suitable for deployment in production environments**
 
 ## Data storage
-Pubsub is an in-memory system, however it will persist message data to a file-based KV database in future to assist with disaster recovery efforts. See *ToDo* section
+Pubsub is an in-memory system, however it will persist message data to a file-based KV database in future to assist with disaster recovery efforts. See the *Roadmap* section
 
 ## Usage
 ### Request Params
@@ -75,7 +75,7 @@ type IncomingReq struct{
 1. **Messages** that have been consumed and acknowleged by all subscribers are deleted. 
 1. Add a pushURL/WebhookURL to subscribe as a push subscriber. Otherwise you will have to pull the message via retrieval endpoint with a messageID to get the next message. You cannot mix methods or change subscription type after initial subscripton, without first unsubscribing and subscribing again.
 
-## ToDo
+## Roadmap
 - [ ] Timed garbage collection of stale subscribers by first tombstoning subscribers preventing deletion of tickets over 50 places behind PointerHead, then deleting them on second pass if they are still there after a certain amount of time. Designed to prevent inactive subscribers forcing long term storage of messages (to maintain a stable service)
 - [ ] Timed pushing of messages to Webhook URLs
 - [ ] Implement deletion of User when no longer subscribed to any topic
@@ -83,3 +83,6 @@ type IncomingReq struct{
 - [ ] Implement Errors being parsed back to client via standard error object rather than status 5xx pages 
 - [ ] Persist messages in key-value database for disaster recovery
 - [ ] Error managment for issues that come up in `pubsub.metranome`
+- [ ] Include a Docker file for easy deployment
+- [ ] Inlude a Cloud Build YAML file for easy CICD to GCP Cloud Run
+- [ ] Add a Bash script for easy local deploy for testing using Buildah and Podman

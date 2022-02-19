@@ -10,6 +10,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 )
 
 //createNewUser creates a new user from a given
@@ -31,7 +32,7 @@ func createNewUser(username, password string) (*User, error) {
 		UsernameHash:  fmt.Sprintf("%x", u.Sum(nil)),
 		PasswordHash:  fmt.Sprintf("%x", p.Sum(nil)),
 		mu:            &sync.Mutex{},
-		Subscriptions: make(map[int]string),
+		Subscriptions: make(map[string]string),
 	}
 	user.UUID = fmt.Sprintf("%x", u.Sum([]byte(password)))
 
@@ -130,4 +131,15 @@ func respondMuxHTTP(rw http.ResponseWriter, res Responder) {
 	if err := HTTPErrorResponse(err, http.StatusInternalServerError, rw); err != nil {
 		return
 	}
+}
+
+//isStale checks whether the given date to check is considered stale
+//
+//- timeToCheck is the time to check for staleness
+//
+//- consideredStale is the timeframe after timeToCheck that the timeToCheck could be considered stale
+//
+//Intended use is for tombstoning activity
+func isStale(timeToCheck time.Time, consideredStale time.Duration) bool {
+	return timeToCheck.Add(consideredStale).Before(time.Now())
 }

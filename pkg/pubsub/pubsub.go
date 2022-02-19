@@ -25,12 +25,12 @@ func (pubsub *PubSub) GetUser(username, password string) (*User, error) {
 		//password incorrect return error
 		return nil, fmt.Errorf("User already exists. Please enter correct credentials to login or select a new username to create a new user.")
 
-	} else { //create user if no username exists
-		pubsub.mu.Lock()
-		pubsub.Users[user.UsernameHash] = user
-		pubsub.mu.Unlock()
-		return pubsub.Users[user.UsernameHash], nil
 	}
+	//create user if no username exists
+	pubsub.mu.Lock()
+	pubsub.Users[user.UsernameHash] = user
+	pubsub.mu.Unlock()
+	return pubsub.Users[user.UsernameHash], nil
 }
 
 //GetTopic gets a topic. If it does not exist it creates a new topic
@@ -104,17 +104,171 @@ func (pubsub *PubSub) PushWebhooks() error {
 	return nil
 }
 
-//metranome initiates regularly occuring activities
-// such as fullfilling push subscriptions, backing up
-// and garbage collection of messages
-func (pubsub *PubSub) metranome() {
-	t := time.Tick(1 * time.Second)
+//Tombstone cycles through and does tombstoning and deletion activities
+func (pubsub *PubSub) Tombstone(consideredStale, resurrectionOpportunity time.Duration) error {
+	//subscription tombstoning
+	if err := pubsub.subscriptionTombstone(consideredStale, resurrectionOpportunity); err != nil {
+		return err
+	}
+	//message tombstoning
+	if err := pubsub.messageTombstone(resurrectionOpportunity); err != nil {
+		return err
+	}
+	//topic tombstoning
+	if err := pubsub.topicTombstone(consideredStale); err != nil {
+		return err
+	}
+	//user tombstoning
+	if err := pubsub.userTombstone(resurrectionOpportunity); err != nil {
+		return err
+	}
 
-	for range t {
-		//to regularly occurring tasks
-		//todo add tasks here that run every second
-		if err := pubsub.PushWebhooks(); err != nil {
-			log.Println(err) //this needs to be logged and picked up be error managment
+	return nil
+}
+
+//subscriptionTombstone used in tombstone for running tombstone and delete functions on Subscription objects
+func (pubsub *PubSub) subscriptionTombstone(consideredStale, resurrectionOpportunity time.Duration) error {
+	for _, topic := range pubsub.Topics {
+		for pointer, subscribers := range topic.PointerPositions {
+			//if pointer is to a message less than `consideredStale` old - leave alone
+			if t, err := topic.Messages[pointer].GetCreatedDateTime(); isStale(t, consideredStale) {
+				if err != nil {
+					return err
+				}
+				continue
+			}
+			//else comb through subscriber list and tombstone
+			for _, subscriber := range subscribers {
+				if subscriber.tombstone != "" {
+					tombstoneDate, err := parseTombstoneDateString(subscriber.tombstone)
+					if err != nil {
+						return err
+					}
+					if tombstoneDate.Add(resurrectionOpportunity).Before(time.Now()) {
+						//delete subscription
+						delete(topic.PointerPositions[pointer], subscriber.ID)
+						//also delete User Subscriptions list
+						delete(pubsub.Users[subscriber.ID].Subscriptions, topic.Name)
+
+					}
+					continue
+				}
+				//tombstone if no previous tombstone
+				if err := subscriber.addTombstone(); err != nil {
+					return err
+				}
+			}
 		}
 	}
+	return nil
+}
+
+//messageTombstone used in tombstone for running tombstone and delete functions on Message objects
+//
+//Definition of old is zero subscribers at or below messages in this pointer position
+func (pubsub *PubSub) messageTombstone(resurrectionOpportunity time.Duration) error {
+	//cycle through Topics
+	for topicName, topic := range pubsub.Topics {
+		//delete messages from bottom up where subscriber length is 0
+		for lowestPosition := (topic.PointerHead - len(topic.PointerPositions)) + 1; len(topic.PointerPositions[lowestPosition]) < 1; lowestPosition -= 1 {
+			//tombstone if no tombstone already
+			if topic.Messages[lowestPosition].tombstone == "" {
+				m := pubsub.Topics[topicName].Messages[lowestPosition]
+				m.tombstone = tombstoneDateString()
+				pubsub.Topics[topicName].Messages[lowestPosition] = m
+			}
+			//get tombstone
+			tombstone, err := parseTombstoneDateString(topic.Messages[lowestPosition].tombstone)
+			if err != nil {
+				return err
+			}
+			//check if tombstone is older than resurrectionOpportunity duration
+			if isStale(tombstone, resurrectionOpportunity) {
+				delete(topic.Messages, lowestPosition)
+			}
+		}
+	}
+	return nil
+}
+
+//topicTombstone used in tombstone for running tombstone and delete functions on Topic objects
+//
+//Stale and ready for tombstoning is defined as a Topic with no remaining Messages
+//AND older than `consideredStale` length of time
+func (pubsub *PubSub) topicTombstone(consideredStale time.Duration) error {
+	for topicName, topic := range pubsub.Topics {
+		if len(topic.Messages) < 1 {
+			//check for existing topicTombstone
+			if topic.tombstone == "" {
+				//add tombstone if recently eligible
+				pubsub.Topics[topicName].tombstone = tombstoneDateString()
+				continue
+			}
+			//else delete if stale
+			tdate, err := parseTombstoneDateString(topic.tombstone)
+			if err != nil {
+				return err
+			}
+			if isStale(tdate, consideredStale) {
+				delete(pubsub.Topics, topicName)
+			}
+		}
+	}
+	return nil
+}
+
+//userTombstone used in tombstone for running tombstone and delete functions on
+//User objects
+//
+//Definition of stale is a user with no subscriptions and creator of no Topics
+func (pubsub *PubSub) userTombstone(resurrectionOpportunity time.Duration) error {
+	for usr, user := range pubsub.Users {
+		if len(user.Subscriptions) > 0 {
+			continue
+		}
+		//check if they are already tombstoned
+		if user.tombstone == "" {
+			pubsub.Users[usr].tombstone = tombstoneDateString()
+			continue
+		}
+		//otherwise check if safe to delete
+		d, err := parseTombstoneDateString(user.tombstone)
+		if err != nil {
+			return err
+		}
+		if isStale(d, resurrectionOpportunity) {
+			delete(pubsub.Users, usr)
+		}
+	}
+	return nil
+}
+
+//metranome initiates regularly occurring activities
+// such as fullfilling push subscriptions, backing up
+// and garbage collection of messages
+//
+//TODO: Errors need to be logged in kv-db and followed up to prevent errors going unchecked or panicking on non catastrophic errors
+func (pubsub *PubSub) metranome() {
+	//time intervals
+	sec := time.Tick(1 * time.Second)
+	milliSecs := time.Tick(80 * time.Millisecond)
+	min := time.Tick(1 * time.Second * 60)
+	//actions for each
+	go func() {
+		for {
+			select {
+			case <-min:
+				if err := pubsub.Tombstone(3*60*time.Minute, 30*time.Minute); err != nil {
+					log.Println(err) //!Needs logging!
+				}
+
+			case <-sec:
+
+			case <-milliSecs:
+				if err := pubsub.PushWebhooks(); err != nil {
+					log.Println(err) //!Needs logging!
+				}
+			}
+		}
+	}()
 }

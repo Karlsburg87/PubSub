@@ -14,12 +14,13 @@ type PubSub struct {
 
 //Topic is the setup for topics
 type Topic struct {
-	ID               int                 //sequential number--unused: safe to delete--
+	//ID               int                 //sequential number--unused: safe to delete--
 	Creator          *User               //only User that can write to the topic
 	Name             string              //user given name for the topic (sanitized)
 	Messages         map[int]Message     //message queue
 	PointerPositions map[int]Subscribers //pointer position against subscribers at that position
 	PointerHead      int                 //latest/highest Messages key/ID.
+	tombstone        string              //timestamp - deleted in 10 minutes
 }
 
 //Topics is a map of topics with key as topic name
@@ -27,9 +28,10 @@ type Topics map[string]*Topic
 
 //Subscriber is the setup of a subscriber to a topic
 type Subscriber struct {
-	ID      string //User.UUID
-	User    *User
-	PushURL *url.URL
+	ID        string //User.UUID
+	User      *User
+	PushURL   *url.URL
+	tombstone string //timestamp - deleted in 10 minutes
 }
 
 //Subscribers is a map of subscribers
@@ -37,9 +39,10 @@ type Subscribers map[string]Subscriber //Subscriber.ID against subscriber
 
 //Message is a single message structure
 type Message struct {
-	ID      int         `json:"id"` //sequence number
-	Data    interface{} `json:"data"`
-	Created string      `json:"created"`
+	ID        int         `json:"id"` //sequence number
+	Data      interface{} `json:"data"`
+	Created   string      `json:"created"`
+	tombstone string      //timestamp - deleted in 10 minutes
 }
 
 //User is the struct of a user able to make a subscription
@@ -47,8 +50,9 @@ type User struct {
 	UUID          string //hash of Username+Password
 	UsernameHash  string
 	PasswordHash  string
-	Subscriptions map[int]string //Topic IDs key against pushURL
+	Subscriptions map[string]string //Topic Names key against pushURL
 	mu            *sync.Mutex
+	tombstone     string //timestamp - deleted in 10 minutes
 }
 
 //Users is a map of User by "UsernameHash" key with value of User

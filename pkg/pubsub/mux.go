@@ -105,7 +105,7 @@ func subscriptionUnsubscribeHandler(rw http.ResponseWriter, r *http.Request, pub
 	response := SubscribeResp{
 		User:   user.UUID,
 		Topic:  topic.Name,
-		Status: "Unubscribed",
+		Status: "Unsubscribed",
 	}
 
 	//respond
@@ -180,10 +180,8 @@ func messageWriteHandler(rw http.ResponseWriter, r *http.Request, pubsub *PubSub
 		return
 	}
 	//prepare the message
-	msg := Message{
-		Data:    payload.Message,
-		Created: time.Now().Format(time.RFC3339),
-	}
+	msg := Message{Data: payload.Message}
+	msg.AddCreatedDatestring(time.Now())
 	//write a message
 	message, err := user.WriteToTopic(topic, msg)
 	if err := HTTPErrorResponse(err, http.StatusInternalServerError, rw); err != nil {

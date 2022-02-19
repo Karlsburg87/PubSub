@@ -27,7 +27,7 @@ func (user *User) Subscribe(topic *Topic, pushURL string) error {
 	user.mu.Lock()
 
 	//add to User subscriber list
-	user.Subscriptions[topic.ID] = pushURL
+	user.Subscriptions[topic.Name] = pushURL
 	//Add subscriber object to topic to receive messages from
 	// current head position
 	if _, ok := topic.PointerPositions[topic.PointerHead]; !ok {
@@ -44,7 +44,7 @@ func (user *User) Subscribe(topic *Topic, pushURL string) error {
 func (user *User) Unsubscribe(topic *Topic) error {
 	user.mu.Lock()
 	//remove from User subscriber list
-	delete(user.Subscriptions, topic.ID)
+	delete(user.Subscriptions, topic.Name)
 	//remove from topic pointerPosition list to no
 	// longer receive messages
 	delete(topic.PointerPositions[topic.PointerHead], user.UUID)
@@ -52,7 +52,7 @@ func (user *User) Unsubscribe(topic *Topic) error {
 	return nil
 }
 
-//WriteToTopic
+//WriteToTopic manages the user writing to a topic it is a creator of
 func (user *User) WriteToTopic(topic *Topic, message Message) (Message, error) {
 	//check user is the creator of the topic
 	if user.UUID != topic.Creator.UUID {
@@ -70,7 +70,7 @@ func (user *User) WriteToTopic(topic *Topic, message Message) (Message, error) {
 //PullMessage retrieves a message from the Topic message queue if the user is subscibed
 func (user *User) PullMessage(topic *Topic, messageID int) (Message, error) {
 	//check user is subscribed and isn't pulling a push sub
-	pushURL, ok := user.Subscriptions[topic.ID]
+	pushURL, ok := user.Subscriptions[topic.Name]
 	if !ok {
 		return Message{}, fmt.Errorf("User not subscribed to Topic")
 	} else if pushURL != "" {
@@ -91,8 +91,6 @@ func (user *User) PullMessage(topic *Topic, messageID int) (Message, error) {
 			}
 		}
 		return msg, nil
-	} else {
-		return Message{}, fmt.Errorf("This message does not exist. Head point is %d", topic.PointerHead)
 	}
-
+	return Message{}, fmt.Errorf("This message does not exist. Head point is %d", topic.PointerHead)
 }
