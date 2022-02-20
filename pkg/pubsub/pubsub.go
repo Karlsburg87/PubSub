@@ -20,11 +20,11 @@ func (pubsub *PubSub) GetUser(username, password string) (*User, error) {
 	}
 	if rec, ok := pubsub.Users[user.UsernameHash]; ok { //username found so check password...
 		if user.PasswordHash == rec.PasswordHash { //password correct so return User
-    log.Printf("%+v\n%+v\n",user,rec)
+			log.Printf("%+v\n%+v\n", user, rec)
 			return rec, nil
 		}
 		//password incorrect return error
-    log.Println("Incorrect Username and Password pair")
+		log.Println("Incorrect Username and Password pair")
 		return nil, fmt.Errorf("User already exists. Please enter correct credentials to login or select a new username to create a new user.")
 	}
 	//create user if no username exists

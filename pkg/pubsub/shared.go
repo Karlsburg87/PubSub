@@ -110,7 +110,7 @@ func HTTPErrorResponse(err error, errType int, rw http.ResponseWriter) error {
 //IncomingReq is the rolled up query including fields from
 // body json and url query args (see getHTTPData)
 func HTTPAuthenticate(rw http.ResponseWriter, r *http.Request, pubsub *PubSub) (*User, IncomingReq, error) {
-  //get data from URL query string and JSON body
+	//get data from URL query string and JSON body
 	payload, err := getHTTPData(r)
 	if err != nil {
 		return nil, payload, HTTPErrorResponse(err, http.StatusInternalServerError, rw)
@@ -128,7 +128,7 @@ func HTTPAuthenticate(rw http.ResponseWriter, r *http.Request, pubsub *PubSub) (
 	if err := HTTPErrorResponse(err, http.StatusBadRequest, rw); err != nil {
 		return nil, payload, err
 	}
-  
+
 	return user, payload, HTTPErrorResponse(err, http.StatusInternalServerError, rw)
 }
 
