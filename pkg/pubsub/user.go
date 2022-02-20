@@ -30,7 +30,9 @@ func (user *User) Subscribe(topic *Topic, pushURL string) error {
 	//add to User subscriber list
 	user.Subscriptions[topic.Name] = pushURL
 	//remove any user tombstones
-	user.removeTombstone()
+	if err := user.removeTombstone(); err != nil {
+		return err
+	}
 	user.mu.Unlock()
 
 	topic.mu.Lock()
@@ -41,7 +43,9 @@ func (user *User) Subscribe(topic *Topic, pushURL string) error {
 	}
 	topic.PointerPositions[topic.PointerHead][sub.ID] = sub
 	//remove any topic tombstones
-	topic.removeTombstone()
+	if err := topic.removeTombstone(); err != nil {
+		return err
+	}
 	topic.mu.Unlock()
 
 	return nil
@@ -55,7 +59,9 @@ func (user *User) Unsubscribe(topic *Topic) error {
 	//remove from topic pointerPosition list to no
 	// longer receive messages
 	//remove any user tombstones
-	user.removeTombstone()
+	if err := user.removeTombstone(); err != nil {
+		return err
+	}
 	user.mu.Unlock()
 
 	topic.mu.Lock()
@@ -77,11 +83,15 @@ func (user *User) WriteToTopic(topic *Topic, message Message) (Message, error) {
 	topic.Messages[topic.PointerHead] = message
 	topic.PointerHead += 1
 	//remove any topic tombstones
-	topic.removeTombstone()
+	if err := topic.removeTombstone(); err != nil {
+		return Message{}, err
+	}
 	topic.mu.Unlock()
 
 	user.mu.Lock()
-	user.removeTombstone()
+	if err := user.removeTombstone(); err != nil {
+		return Message{}, err
+	}
 	user.mu.Unlock()
 	return message, nil
 }
@@ -110,7 +120,9 @@ func (user *User) PullMessage(topic *Topic, messageID int) (Message, error) {
 
 				user.mu.Lock()
 				//remove any user tombstones
-				user.removeTombstone()
+				if err := user.removeTombstone(); err != nil {
+					return Message{}, err
+				}
 				user.mu.Unlock()
 			}
 		}

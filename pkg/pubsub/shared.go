@@ -36,6 +36,9 @@ func createNewUser(username, password string) (*User, error) {
 	}
 	//add username to password for uuid
 	_, err = u.Write([]byte(password))
+	if err != nil {
+		return nil, err
+	}
 	user.UUID = fmt.Sprintf("%x", u.Sum(nil))
 	user.AddCreatedDatestring(time.Now())
 	return user, nil

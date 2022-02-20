@@ -73,6 +73,10 @@ func (pubsub *PubSub) CreateTopic(topicName string, user *User) (*Topic, error) 
 	//subscribe the User
 	p := pubsub.Topics[topicName]
 	user.Subscribe(p, "")
+	//remove any tombstones on the user
+	if err := user.removeTombstone(); err != nil {
+		return nil, err
+	}
 	pubsub.mu.Unlock()
 
 	return p, nil
