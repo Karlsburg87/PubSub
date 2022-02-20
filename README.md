@@ -68,14 +68,15 @@ type IncomingReq struct{
 
 |Endpoint|Use|Params|
 |-|-|-|
-|`/users/obtain/`|Explicitly creates a User and returns the User object. Returns the user UUID|Mandatory fields only|
-|`/topic/subscribe/`|Subscribe to an existing Topic. Returns the subscription detail and status|topic, [*webhook_url*] (if requesting push subscription)|
-|`/topic/unsubscribe/`|Unsubscribe from an existing topic. Returns the subscription detail with status (unsubscribed if successful)|topic|
-|`/topic/create/`|Explicitly create a topic with a given topic name. Returns the topic information or error if already exists|topic|
-|`/topic/fetch`|Explicitly fetch a topic with a given topic name. Returns the topic information of error if topic does not exist |topic|
-|`/topic/obtain/`|Get an existing topic of a given name of create a topic with that name if one does not exist. Returns topic information|topic|
-|`/topic/messages/pull/`|Get a message from a topic's message queue. Messages start at pointer position 1|topic, message_id|
-|`/topic/messages/write/`|Write a message to a topic queue|topic, message|
+|`/users/user/obtain`|Explicitly creates a User and returns the User object. Returns the user UUID|Mandatory fields only|
+|`/topics/topic/subscribe`|Subscribe to an existing Topic. Returns the subscription detail and status|topic, [*webhook_url*] (if requesting push subscription)|
+|`/topics/topic/unsubscribe`|Unsubscribe from an existing topic. Returns the subscription detail with status (unsubscribed if successful)|topic|
+|`/topics/topic/create`|Explicitly create a topic with a given topic name. Returns the topic information or error if already exists|topic|
+|`/topics/fetch`|Returns a list of topics that can be subscribed to by the User|Mandatory fields only|
+|`/topics/topic/fetch`|Explicitly fetch a topic with a given topic name. Returns the topic information of error if topic does not exist |topic|
+|`/topics/topic/obtain`|Get an existing topic of a given name of create a topic with that name if one does not exist. Returns topic information|topic|
+|`/topics/topic/messages/pull`|Get a message from a topic's message queue. Messages start at pointer position 1|topic, message_id|
+|`/topics/topic/messages/write`|Write a message to a topic queue|topic, message|
 
 
 ## Limitations

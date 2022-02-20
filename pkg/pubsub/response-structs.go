@@ -2,13 +2,23 @@ package pubsub
 
 import "encoding/json"
 
+//ListKeysResp is the response from a query requesting lists of entries such as /users/fetch, /topics/fetch, etc
+type ListKeysResp struct {
+	Error       string   `json:"error,omitempty"`
+	Topics      []string `json:"topics,omitempty"`
+	Users       []string `json:"users,omitempty"` //not in use yet
+	Subscribers []string `json:"users,omitempty"` //not in use yet
+	Count       int      `json:"count"`
+}
+
 //CreateUserResp is the response from a create user request
 type CreateUserResp struct {
 	Error string `json:"error,omitempty"`
 	UUID  string `json:"user_id,omitempty"`
-	//Subscriptions is len(User.Subscriptions)
-	Subscriptions int    `json:"subscriptions"`
-	Created       string `json:"created,omitempty"`
+	//SubscriptionCount is len(User.Subscriptions)
+	SubscriptionCount int               `json:"subscription_count"`
+	Subscriptions     map[string]string `json:"subscriptions,omitempty"`
+	Created           string            `json:"created,omitempty"`
 }
 
 //MessageResp is the response from Message orientated requests
@@ -61,6 +71,11 @@ type IncomingReq struct {
 //Responder are handler response objects with encoding methods
 type Responder interface {
 	toJSON() ([]byte, error)
+}
+
+//toJSON marshalls the response object to JSON binary
+func (response ListKeysResp) toJSON() ([]byte, error) {
+	return json.MarshalIndent(response, " ", " ")
 }
 
 //toJSON marshalls the response object to JSON binary

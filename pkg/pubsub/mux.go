@@ -26,28 +26,31 @@ func CreateMux() *http.ServeMux {
 	//shared mux resources and boot superuser and core struct
 	pubsub := getReady("ping", "pingpassword")
 	//routers - https://pkg.go.dev/net/http#ServeMux
-	mux.HandleFunc("/user/obtain", func(rw http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/users/user/obtain", func(rw http.ResponseWriter, r *http.Request) {
 		userCreateHandler(rw, r, pubsub)
 	})
-	mux.HandleFunc("/topic/subscribe", func(rw http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/topics/topic/subscribe", func(rw http.ResponseWriter, r *http.Request) {
 		subscriptionSubscribeHandler(rw, r, pubsub)
 	})
-	mux.HandleFunc("/topic/unsubscribe", func(rw http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/topics/topic/unsubscribe", func(rw http.ResponseWriter, r *http.Request) {
 		subscriptionUnsubscribeHandler(rw, r, pubsub)
 	})
-	mux.HandleFunc("/topic/create", func(rw http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/topics/fetch", func(rw http.ResponseWriter, r *http.Request) {
+		topicsListHandler(rw, r, pubsub)
+	})
+	mux.HandleFunc("/topics/topic/create", func(rw http.ResponseWriter, r *http.Request) {
 		topicRetrieveHandler(rw, r, pubsub, createVerb)
 	})
-	mux.HandleFunc("/topic/fetch", func(rw http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/topics/topic/fetch", func(rw http.ResponseWriter, r *http.Request) {
 		topicRetrieveHandler(rw, r, pubsub, fetchVerb)
 	})
-	mux.HandleFunc("/topic/obtain", func(rw http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/topics/topic/obtain", func(rw http.ResponseWriter, r *http.Request) {
 		topicRetrieveHandler(rw, r, pubsub, obtainVerb)
 	})
-	mux.HandleFunc("/topic/messages/pull", func(rw http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/topics/topic/messages/pull", func(rw http.ResponseWriter, r *http.Request) {
 		messagePullHandler(rw, r, pubsub)
 	})
-	mux.HandleFunc("/topic/messages/write", func(rw http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/topics/topic/messages/write", func(rw http.ResponseWriter, r *http.Request) {
 		messageWriteHandler(rw, r, pubsub)
 	})
 	mux.HandleFunc("/", func(rw http.ResponseWriter, r *http.Request) {
@@ -70,9 +73,10 @@ func userCreateHandler(rw http.ResponseWriter, r *http.Request, pubsub *PubSub) 
 	}
 	//create response
 	response := CreateUserResp{
-		UUID:          user.UUID,
-		Subscriptions: len(user.Subscriptions),
-		Created:       user.Created,
+		UUID:              user.UUID,
+		SubscriptionCount: len(user.Subscriptions),
+		Subscriptions:     user.Subscriptions,
+		Created:           user.Created,
 	}
 	//respond
 	respondMuxHTTP(rw, response)
@@ -131,6 +135,27 @@ func subscriptionUnsubscribeHandler(rw http.ResponseWriter, r *http.Request, pub
 		CanWrite: user.UUID == topic.Creator.UUID,
 	}
 
+	//respond
+	respondMuxHTTP(rw, response)
+}
+
+//topicsListHandler handles fetch requests for a list of available topics to subscribe topic
+func topicsListHandler(rw http.ResponseWriter, r *http.Request, pubsub *PubSub) {
+	//login user
+	_, _, err := HTTPAuthenticate(rw, r, pubsub)
+	if err != nil {
+		return
+	}
+	//get list
+	list := make([]string, 0, len(pubsub.Topics))
+	for k := range pubsub.Topics {
+		list = append(list, k)
+	}
+	//create response
+	response := ListKeysResp{
+		Topics: list,
+		Count:  len(list),
+	}
 	//respond
 	respondMuxHTTP(rw, response)
 }
