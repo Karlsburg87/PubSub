@@ -97,6 +97,7 @@ func (user *User) PullMessage(topic *Topic, messageID int) (Message, error) {
 }
 
 //------------------helpers
+
 //GetCreatedDateTime fetches the created datetime string and parses it
 func (user User) GetCreatedDateTime() (time.Time, error) {
 	if user.Created == "" {

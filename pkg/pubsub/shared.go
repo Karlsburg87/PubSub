@@ -23,7 +23,7 @@ func createNewUser(username, password string) (*User, error) {
 		return nil, err
 	}
 	p := sha256.New()
-	_, err = u.Write([]byte(password))
+	_, err = p.Write([]byte(password))
 	if err != nil {
 		return nil, err
 	}
@@ -34,7 +34,9 @@ func createNewUser(username, password string) (*User, error) {
 		mu:            &sync.Mutex{},
 		Subscriptions: make(map[string]string),
 	}
-	user.UUID = fmt.Sprintf("%x", u.Sum([]byte(password)))
+	//add username to password for uuid
+	_, err = u.Write([]byte(password))
+	user.UUID = fmt.Sprintf("%x", u.Sum(nil))
 	user.AddCreatedDatestring(time.Now())
 	return user, nil
 }
@@ -129,7 +131,7 @@ func HTTPAuthenticate(rw http.ResponseWriter, r *http.Request, pubsub *PubSub) (
 		return nil, payload, err
 	}
 
-	return user, payload, HTTPErrorResponse(err, http.StatusInternalServerError, rw)
+	return user, payload, nil
 }
 
 //respondMuxHTTP is the standard responder to mux handler workloads
