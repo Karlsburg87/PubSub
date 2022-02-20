@@ -25,18 +25,24 @@ func (user *User) Subscribe(topic *Topic, pushURL string) error {
 		User:    user,
 		PushURL: url,
 	}
-	user.mu.Lock()
 
+	user.mu.Lock()
 	//add to User subscriber list
 	user.Subscriptions[topic.Name] = pushURL
+	//remove any user tombstones
+	user.removeTombstone()
+	user.mu.Unlock()
+
+	topic.mu.Lock()
 	//Add subscriber object to topic to receive messages from
 	// current head position
 	if _, ok := topic.PointerPositions[topic.PointerHead]; !ok {
 		topic.PointerPositions[topic.PointerHead] = make(Subscribers)
 	}
 	topic.PointerPositions[topic.PointerHead][sub.ID] = sub
-
-	user.mu.Unlock()
+	//remove any topic tombstones
+	topic.removeTombstone()
+	topic.mu.Unlock()
 
 	return nil
 }
@@ -48,8 +54,14 @@ func (user *User) Unsubscribe(topic *Topic) error {
 	delete(user.Subscriptions, topic.Name)
 	//remove from topic pointerPosition list to no
 	// longer receive messages
-	delete(topic.PointerPositions[topic.PointerHead], user.UUID)
+	//remove any user tombstones
+	user.removeTombstone()
 	user.mu.Unlock()
+
+	topic.mu.Lock()
+	delete(topic.PointerPositions[topic.PointerHead], user.UUID)
+	topic.mu.Unlock()
+
 	return nil
 }
 
@@ -59,11 +71,17 @@ func (user *User) WriteToTopic(topic *Topic, message Message) (Message, error) {
 	if user.UUID != topic.Creator.UUID {
 		return Message{}, fmt.Errorf("User does not have the authorisation to write to this channel")
 	}
-	user.mu.Lock()
+	topic.mu.Lock()
 	//Add message to topic's message queue
 	message.ID = topic.PointerHead
 	topic.Messages[topic.PointerHead] = message
 	topic.PointerHead += 1
+	//remove any topic tombstones
+	topic.removeTombstone()
+	topic.mu.Unlock()
+
+	user.mu.Lock()
+	user.removeTombstone()
 	user.mu.Unlock()
 	return message, nil
 }
@@ -85,9 +103,14 @@ func (user *User) PullMessage(topic *Topic, messageID int) (Message, error) {
 				if messageID > pos {
 					break
 				}
-				user.mu.Lock()
+				topic.mu.Lock()
 				topic.PointerPositions[messageID][user.UUID] = s
 				delete(topic.PointerPositions[pos], user.UUID)
+				topic.mu.Unlock()
+
+				user.mu.Lock()
+				//remove any user tombstones
+				user.removeTombstone()
 				user.mu.Unlock()
 			}
 		}

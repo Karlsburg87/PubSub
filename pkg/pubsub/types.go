@@ -20,7 +20,8 @@ type Topic struct {
 	Messages         map[int]Message     //message queue
 	PointerPositions map[int]Subscribers //pointer position against subscribers at that position
 	PointerHead      int                 //latest/highest Messages key/ID.
-	tombstone        string              //timestamp - deleted in 10 minutes
+	mu               *sync.Mutex
+	tombstone        string //timestamp - deleted in 10 minutes
 }
 
 //Topics is a map of topics with key as topic name

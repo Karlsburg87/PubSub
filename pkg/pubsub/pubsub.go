@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"sync"
 	"time"
 )
 
@@ -64,6 +65,7 @@ func (pubsub *PubSub) CreateTopic(topicName string, user *User) (*Topic, error) 
 		PointerHead:      0,
 		PointerPositions: make(map[int]Subscribers),
 		Messages:         make(map[int]Message),
+		mu:               &sync.Mutex{},
 	}
 	//Add the topic to the public topic list
 	pubsub.mu.Lock()
@@ -139,14 +141,17 @@ func (pubsub *PubSub) Tombstone(consideredStale, resurrectionOpportunity time.Du
 //subscriptionTombstone used in tombstone for running tombstone and delete functions on Subscription objects
 func (pubsub *PubSub) subscriptionTombstone(consideredStale, resurrectionOpportunity time.Duration) error {
 	for _, topic := range pubsub.Topics {
-		//skip topic if has no subscribers
-		if len(topic.PointerPositions) < 1 {
+		//skip topic if has no subscribers or if topic has no messages
+		if len(topic.PointerPositions) < 1 || len(topic.Messages) < 1 {
 			continue
 		}
 		for pointer, subscribers := range topic.PointerPositions {
 			//if pointer is to a message less than `consideredStale` old - leave alone
 			if t, err := topic.Messages[pointer].GetCreatedDateTime(); isStale(t, consideredStale) {
 				if err != nil {
+					//send debug info to std.out
+					log.Printf("Error in GetCreatedDateTime from subscriptionTombstone around Topic: %s\nPointer: %d\nMessage Count: %d\nMessages: %+v", topic.Name, pointer, len(topic.Messages), topic.Messages)
+
 					return err
 				}
 				continue
