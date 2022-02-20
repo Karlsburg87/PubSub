@@ -183,6 +183,10 @@ func (pubsub *PubSub) subscriptionTombstone(consideredStale, resurrectionOpportu
 func (pubsub *PubSub) messageTombstone(resurrectionOpportunity time.Duration) error {
 	//cycle through Topics
 	for topicName, topic := range pubsub.Topics {
+		//if topic has no messages then skip
+		if len(topic.Messages) == 0 {
+			continue
+		}
 		//delete messages from bottom up where subscriber length is 0
 		for lowestPosition := (topic.PointerHead - len(topic.PointerPositions)); len(topic.PointerPositions[lowestPosition]) < 1; lowestPosition -= 1 {
 			//tombstone if no tombstone already

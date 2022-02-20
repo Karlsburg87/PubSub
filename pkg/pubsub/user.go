@@ -62,8 +62,8 @@ func (user *User) WriteToTopic(topic *Topic, message Message) (Message, error) {
 	user.mu.Lock()
 	//Add message to topic's message queue
 	message.ID = topic.PointerHead
-	topic.PointerHead += 1
 	topic.Messages[topic.PointerHead] = message
+	topic.PointerHead += 1
 	user.mu.Unlock()
 	return message, nil
 }

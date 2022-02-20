@@ -80,7 +80,7 @@ type IncomingReq struct{
 
 
 ## Limitations
-1. Only the creator **User** of a topic can write to inactive
+1. Only the creator **User** of a topic can write to it
 1. A **User** is a disposable object that identifies credentials associated with a group of subscriptions. They are deleted when they are no longer associated with subscriptions. They are created passively when a username/password pair are used to subscribe or create a topic, so long as username does not exist already (failed request). In that case the User will either be logged in (if password matches) or the request will fail due to an unauthorised request.
 1. When a **Topic** no longer has any subscribers, it is deleted. Topics can be passively created again if any user attempts to write to the topic or actively by sending a request to the `/topic/create` endpoint. In which case that user will become the creator of the topic, and the only User authorised to write to it. This should not cause issues as the creator of a topic is automatically subscribed to it, so must actively unsubscribe, or allow the subscription to go stale and be tombstoned by not consuming the stream. As a failsafe, create a new user to consume the topic by webhook to keep alive.
 1. **Messages** that have been consumed and acknowleged by all subscribers are deleted. 
