@@ -35,7 +35,7 @@ func createNewUser(username, password string) (*User, error) {
 		Subscriptions: make(map[string]string),
 	}
 	user.UUID = fmt.Sprintf("%x", u.Sum([]byte(password)))
-
+	user.AddCreatedDatestring(time.Now())
 	return user, nil
 }
 
@@ -86,10 +86,19 @@ func getHTTPData(req *http.Request) (IncomingReq, error) {
 // errors in the handler function
 func HTTPErrorResponse(err error, errType int, rw http.ResponseWriter) error {
 	if err != nil {
-		log.Println(err)
+		log.Printf("%v : (HTTP Status Code: %d)\n", err, errType)
 		rw.WriteHeader(errType)
-		if _, err := rw.Write([]byte(err.Error())); err != nil {
-			log.Panicln(err)
+		//wrap error message
+		errResponse := map[string]string{
+			"error": err.Error(),
+		}
+		out, errMarshall := json.MarshalIndent(errResponse, " ", " ")
+		if errMarshall != nil {
+			log.Panicln(fmt.Errorf("Error marshalling json in HTTPErrorResponse: %v", err))
+		}
+		rw.Header().Set("content-type", "application/json")
+		if _, err := fmt.Fprint(rw, string(out)); err != nil {
+			log.Panicln(fmt.Errorf("Error writing to rw.Write in HTTPErrorResponse: %v", err))
 		}
 		return err
 	}
@@ -97,25 +106,29 @@ func HTTPErrorResponse(err error, errType int, rw http.ResponseWriter) error {
 }
 
 //HTTPAuthenticate does the boilerplate check username and password work for incoming service queries
+//
+//IncomingReq is the rolled up query including fields from
+// body json and url query args (see getHTTPData)
 func HTTPAuthenticate(rw http.ResponseWriter, r *http.Request, pubsub *PubSub) (*User, IncomingReq, error) {
+  //get data from URL query string and JSON body
 	payload, err := getHTTPData(r)
 	if err != nil {
 		return nil, payload, HTTPErrorResponse(err, http.StatusInternalServerError, rw)
 	}
 	//Check there is a username and password
 	if payload.Username == "" || payload.Password == "" {
-		if err != nil {
-			log.Println("Request did not pass full login credentials. Missing Username or Password")
-			rw.WriteHeader(http.StatusBadRequest)
-			if _, err := rw.Write([]byte(err.Error())); err != nil {
-				log.Println(err)
-				return nil, payload, err
-			}
+		log.Println("Request did not pass full login credentials. Missing Username or Password")
+		if err := HTTPErrorResponse(fmt.Errorf("Username and password must be given as request parameters"), http.StatusBadRequest, rw); err != nil {
+			fmt.Println("this ran")
 			return nil, payload, err
 		}
 	}
 	//login or create user
 	user, err := pubsub.GetUser(payload.Username, payload.Password)
+	if err := HTTPErrorResponse(err, http.StatusBadRequest, rw); err != nil {
+		return nil, payload, err
+	}
+  
 	return user, payload, HTTPErrorResponse(err, http.StatusInternalServerError, rw)
 }
 

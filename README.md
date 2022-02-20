@@ -57,15 +57,25 @@ type IncomingReq struct{
 }
 ```
 ### Endpoints
+|Verbs| Definition|
+|-|-|
+|Obtain| Get existing or create|
+|Create | Create new or error if already exists|
+|Fetch  | Get existing or error if does not exists|
+|Write  | Write data to server|
+|Pull   | Read information from server by http request (pull) after subscribing to a pull agreement of event data|
+|Subscribe/Unsubscribe | Setup or delete push/pull agreement|
+
 |Endpoint|Use|Params|
 |-|-|-|
-|`/users/create`|Explicitly creates a User and returns the User object. Returns the user UUID|Mandatory fields only|
-|`/subscriptions/subscribe/`|Subscribe to an existing Topic. Returns the subscription detail and status|topic, [*webhook_url*] (if requesting push subscription)|
-|`/subscriptions/unsubscribe/`|Unsubscribe from an existing topic. Returns the subscription detail with status (unsubscribed if successful)|topic|
-|`/topics/create`|Explicitly create a topic with a given topic name. Returns the topic information|topic|
-|`/topics/obtain`|Get an existing topic of a given name of create a topic with that name if one does not exist. Returns topic information|topic|
-|`/message/pull`|Get a message from a topic's message queue. Messages start at pointer position 1|topic, message_id|
-|`/message/write`|Write a message to a topic queue|topic, message|
+|`/users/obtain/`|Explicitly creates a User and returns the User object. Returns the user UUID|Mandatory fields only|
+|`/topic/subscribe/`|Subscribe to an existing Topic. Returns the subscription detail and status|topic, [*webhook_url*] (if requesting push subscription)|
+|`/topic/unsubscribe/`|Unsubscribe from an existing topic. Returns the subscription detail with status (unsubscribed if successful)|topic|
+|`/topic/create/`|Explicitly create a topic with a given topic name. Returns the topic information or error if already exists|topic|
+|`/topic/fetch`|Explicitly fetch a topic with a given topic name. Returns the topic information of error if topic does not exist |topic|
+|`/topic/obtain/`|Get an existing topic of a given name of create a topic with that name if one does not exist. Returns topic information|topic|
+|`/topic/messages/pull/`|Get a message from a topic's message queue. Messages start at pointer position 1|topic, message_id|
+|`/topic/messages/write/`|Write a message to a topic queue|topic, message|
 
 
 ## Limitations
@@ -76,11 +86,11 @@ type IncomingReq struct{
 1. Add a pushURL/WebhookURL to subscribe as a push subscriber. Otherwise you will have to pull the message via retrieval endpoint with a messageID to get the next message. You cannot mix methods or change subscription type after initial subscripton, without first unsubscribing and subscribing again.
 
 ## Roadmap
-- [ ] Timed garbage collection of stale subscribers by first tombstoning subscribers preventing deletion of tickets over 50 places behind PointerHead, then deleting them on second pass if they are still there after a certain amount of time. Designed to prevent inactive subscribers forcing long term storage of messages (to maintain a stable service)
-- [ ] Timed pushing of messages to Webhook URLs
-- [ ] Implement deletion of User when no longer subscribed to any topic
-- [ ] Implement deletion of Topic when no longer has any subscribers
-- [ ] Implement Errors being parsed back to client via standard error object rather than status 5xx pages 
+- [x] Timed garbage collection of stale subscribers by first tombstoning subscribers preventing deletion of tickets over 50 places behind PointerHead, then deleting them on second pass if they are still there after a certain amount of time. Designed to prevent inactive subscribers forcing long term storage of messages (to maintain a stable service)
+- [x] Timed pushing of messages to Webhook URLs
+- [x] Implement deletion of User when no longer subscribed to any topic
+- [x] Implement deletion of Topic when no longer has any subscribers
+- [x] Implement Errors being parsed back to client via standard error object rather than status 5xx pages 
 - [ ] Persist messages in key-value database for disaster recovery
 - [ ] Error managment for issues that come up in `pubsub.metranome`
 - [ ] Include a Docker file for easy deployment

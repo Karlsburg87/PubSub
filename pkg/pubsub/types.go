@@ -51,6 +51,7 @@ type User struct {
 	UsernameHash  string
 	PasswordHash  string
 	Subscriptions map[string]string //Topic Names key against pushURL
+	Created       string
 	mu            *sync.Mutex
 	tombstone     string //timestamp - deleted in 10 minutes
 }

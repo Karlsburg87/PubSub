@@ -7,34 +7,53 @@ import (
 )
 
 //CreateMux builds the routing for the application. Intended for use with CreateServer
+//
+//Verbs ------
+//
+//Obtain : Get existing or create
+//
+//Create : Create new or error if already exists
+//
+//Fetch  : Get existing or error if does not exists
+//
+//Write  : Write data to server
+//
+//Pull   : Read information from server by http request (pull) after subscribing to a pull agreement of event data
+//
+//Subscribe/Unsubscribe : Setup or delete push/pull agreement
 func CreateMux() *http.ServeMux {
 	mux := http.NewServeMux()
 	//shared mux resources and boot superuser and core struct
 	pubsub := getReady("ping", "pingpassword")
 	//routers - https://pkg.go.dev/net/http#ServeMux
-	mux.HandleFunc("/users/create", func(rw http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/user/obtain", func(rw http.ResponseWriter, r *http.Request) {
 		userCreateHandler(rw, r, pubsub)
 	})
-	mux.HandleFunc("/subscriptions/subscribe/", func(rw http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/topic/subscribe", func(rw http.ResponseWriter, r *http.Request) {
 		subscriptionSubscribeHandler(rw, r, pubsub)
 	})
-	mux.HandleFunc("/subscriptions/unsubscribe/", func(rw http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/topic/unsubscribe", func(rw http.ResponseWriter, r *http.Request) {
 		subscriptionUnsubscribeHandler(rw, r, pubsub)
 	})
 	mux.HandleFunc("/topic/create", func(rw http.ResponseWriter, r *http.Request) {
-		topicRetrieveHandler(rw, r, pubsub, true)
+		topicRetrieveHandler(rw, r, pubsub, createVerb)
+	})
+	mux.HandleFunc("/topic/fetch", func(rw http.ResponseWriter, r *http.Request) {
+		topicRetrieveHandler(rw, r, pubsub, fetchVerb)
 	})
 	mux.HandleFunc("/topic/obtain", func(rw http.ResponseWriter, r *http.Request) {
-		topicRetrieveHandler(rw, r, pubsub, false)
+		topicRetrieveHandler(rw, r, pubsub, obtainVerb)
 	})
-	mux.HandleFunc("/message/pull", func(rw http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/topic/messages/pull", func(rw http.ResponseWriter, r *http.Request) {
 		messagePullHandler(rw, r, pubsub)
 	})
-	mux.HandleFunc("/message/write", func(rw http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/topic/messages/write", func(rw http.ResponseWriter, r *http.Request) {
 		messageWriteHandler(rw, r, pubsub)
 	})
 	mux.HandleFunc("/", func(rw http.ResponseWriter, r *http.Request) {
-		fmt.Fprintln(rw, "Hello World! Welcome to pubsub")
+		if err := HTTPErrorResponse(fmt.Errorf("Please choose an API endpoint"), http.StatusInternalServerError, rw); err != nil {
+			return
+		}
 	})
 
 	return mux
@@ -46,12 +65,14 @@ func CreateMux() *http.ServeMux {
 func userCreateHandler(rw http.ResponseWriter, r *http.Request, pubsub *PubSub) {
 	//login or create user
 	user, _, err := HTTPAuthenticate(rw, r, pubsub)
-	if err := HTTPErrorResponse(err, http.StatusInternalServerError, rw); err != nil {
+	if err != nil {
 		return
 	}
 	//create response
 	response := CreateUserResp{
-		UUID: user.UUID,
+		UUID:          user.UUID,
+		Subscriptions: len(user.Subscriptions),
+		Created:       user.Created,
 	}
 	//respond
 	respondMuxHTTP(rw, response)
@@ -61,7 +82,7 @@ func userCreateHandler(rw http.ResponseWriter, r *http.Request, pubsub *PubSub) 
 func subscriptionSubscribeHandler(rw http.ResponseWriter, r *http.Request, pubsub *PubSub) {
 	//login user
 	user, payload, err := HTTPAuthenticate(rw, r, pubsub)
-	if err := HTTPErrorResponse(err, http.StatusInternalServerError, rw); err != nil {
+	if err != nil {
 		return
 	}
 	//get topic
@@ -76,9 +97,10 @@ func subscriptionSubscribeHandler(rw http.ResponseWriter, r *http.Request, pubsu
 	}
 	//create response
 	response := SubscribeResp{
-		User:   user.UUID,
-		Topic:  topic.Name,
-		Status: "Subscribed",
+		User:     user.UUID,
+		Topic:    topic.Name,
+		Status:   "Subscribed",
+		CanWrite: user.UUID == topic.Creator.UUID,
 	}
 	//respond
 	respondMuxHTTP(rw, response)
@@ -88,11 +110,11 @@ func subscriptionSubscribeHandler(rw http.ResponseWriter, r *http.Request, pubsu
 func subscriptionUnsubscribeHandler(rw http.ResponseWriter, r *http.Request, pubsub *PubSub) {
 	//login user
 	user, payload, err := HTTPAuthenticate(rw, r, pubsub)
-	if err := HTTPErrorResponse(err, http.StatusInternalServerError, rw); err != nil {
+	if err != nil {
 		return
 	}
 	//get topic
-	topic, err := pubsub.GetTopic(payload.Topic, user)
+	topic, err := pubsub.FetchTopic(payload.Topic, user)
 	if err := HTTPErrorResponse(err, http.StatusInternalServerError, rw); err != nil {
 		return
 	}
@@ -103,9 +125,10 @@ func subscriptionUnsubscribeHandler(rw http.ResponseWriter, r *http.Request, pub
 	}
 	//create response
 	response := SubscribeResp{
-		User:   user.UUID,
-		Topic:  topic.Name,
-		Status: "Unsubscribed",
+		User:     user.UUID,
+		Topic:    topic.Name,
+		Status:   "Unsubscribed",
+		CanWrite: user.UUID == topic.Creator.UUID,
 	}
 
 	//respond
@@ -113,17 +136,20 @@ func subscriptionUnsubscribeHandler(rw http.ResponseWriter, r *http.Request, pub
 }
 
 //topicRetrieveHandler handles create and get requests for topics. If createOnly is true, it will response with an error code if the topic already exists. Otherwise it will create and return the topic.
-func topicRetrieveHandler(rw http.ResponseWriter, r *http.Request, pubsub *PubSub, createOnly bool) {
+func topicRetrieveHandler(rw http.ResponseWriter, r *http.Request, pubsub *PubSub, verb verbType) {
 	//login user
 	user, payload, err := HTTPAuthenticate(rw, r, pubsub)
-	if err := HTTPErrorResponse(err, http.StatusInternalServerError, rw); err != nil {
+	if err != nil {
 		return
 	}
 	//create topic
 	var topic *Topic
-	if createOnly {
+	switch verb {
+	case createVerb:
 		topic, err = pubsub.CreateTopic(payload.Topic, user)
-	} else {
+	case fetchVerb:
+		topic, err = pubsub.FetchTopic(payload.Topic, user)
+	default: //obtainVerb
 		topic, err = pubsub.GetTopic(payload.Topic, user)
 	}
 	if err := HTTPErrorResponse(err, http.StatusInternalServerError, rw); err != nil {
@@ -135,6 +161,7 @@ func topicRetrieveHandler(rw http.ResponseWriter, r *http.Request, pubsub *PubSu
 		Status:      "Active",
 		PointerHead: topic.PointerHead,
 		Creator:     topic.Creator.UsernameHash,
+		CanWrite:    user.UUID == topic.Creator.UUID,
 	}
 	//respond
 	respondMuxHTTP(rw, response)
@@ -145,7 +172,7 @@ func topicRetrieveHandler(rw http.ResponseWriter, r *http.Request, pubsub *PubSu
 func messagePullHandler(rw http.ResponseWriter, r *http.Request, pubsub *PubSub) {
 	//login user
 	user, payload, err := HTTPAuthenticate(rw, r, pubsub)
-	if err := HTTPErrorResponse(err, http.StatusInternalServerError, rw); err != nil {
+	if err != nil {
 		return
 	}
 	//get topic
@@ -171,7 +198,7 @@ func messagePullHandler(rw http.ResponseWriter, r *http.Request, pubsub *PubSub)
 func messageWriteHandler(rw http.ResponseWriter, r *http.Request, pubsub *PubSub) {
 	//login user
 	user, payload, err := HTTPAuthenticate(rw, r, pubsub)
-	if err := HTTPErrorResponse(err, http.StatusInternalServerError, rw); err != nil {
+	if err != nil {
 		return
 	}
 	//get topic

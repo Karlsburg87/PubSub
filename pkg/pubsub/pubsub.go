@@ -20,11 +20,12 @@ func (pubsub *PubSub) GetUser(username, password string) (*User, error) {
 	}
 	if rec, ok := pubsub.Users[user.UsernameHash]; ok { //username found so check password...
 		if user.PasswordHash == rec.PasswordHash { //password correct so return User
+    log.Printf("%+v\n%+v\n",user,rec)
 			return rec, nil
 		}
 		//password incorrect return error
+    log.Println("Incorrect Username and Password pair")
 		return nil, fmt.Errorf("User already exists. Please enter correct credentials to login or select a new username to create a new user.")
-
 	}
 	//create user if no username exists
 	pubsub.mu.Lock()
@@ -35,14 +36,22 @@ func (pubsub *PubSub) GetUser(username, password string) (*User, error) {
 
 //GetTopic gets a topic. If it does not exist it creates a new topic
 // using the User as the creator
-func (pubsub *PubSub) GetTopic(topicName string, user *User) (*Topic, error) {
+func (pubsub *PubSub) GetTopic(topicName string, user *User) (topic *Topic, err error) {
+	if topic, err = pubsub.FetchTopic(topicName, user); err != nil {
+		return pubsub.CreateTopic(topicName, user)
+	}
+	return topic, nil
+}
+
+//FetchTopic fetches a topic or returns an error if not found
+func (pubsub *PubSub) FetchTopic(topicName string, user *User) (*Topic, error) {
 	if topic, ok := pubsub.Topics[topicName]; ok {
 		return topic, nil
 	}
-	return pubsub.CreateTopic(topicName, user)
+	return nil, fmt.Errorf("Topic does not exist")
 }
 
-//CreateTopic creates a topic
+//CreateTopic creates a topic or returns an error if already exists
 func (pubsub *PubSub) CreateTopic(topicName string, user *User) (*Topic, error) {
 	//Return error if the topic already exists
 	if _, ok := pubsub.Topics[topicName]; ok {
@@ -129,6 +138,10 @@ func (pubsub *PubSub) Tombstone(consideredStale, resurrectionOpportunity time.Du
 //subscriptionTombstone used in tombstone for running tombstone and delete functions on Subscription objects
 func (pubsub *PubSub) subscriptionTombstone(consideredStale, resurrectionOpportunity time.Duration) error {
 	for _, topic := range pubsub.Topics {
+		//skip topic if has no subscribers
+		if len(topic.PointerPositions) < 1 {
+			continue
+		}
 		for pointer, subscribers := range topic.PointerPositions {
 			//if pointer is to a message less than `consideredStale` old - leave alone
 			if t, err := topic.Messages[pointer].GetCreatedDateTime(); isStale(t, consideredStale) {
@@ -170,7 +183,7 @@ func (pubsub *PubSub) messageTombstone(resurrectionOpportunity time.Duration) er
 	//cycle through Topics
 	for topicName, topic := range pubsub.Topics {
 		//delete messages from bottom up where subscriber length is 0
-		for lowestPosition := (topic.PointerHead - len(topic.PointerPositions)) + 1; len(topic.PointerPositions[lowestPosition]) < 1; lowestPosition -= 1 {
+		for lowestPosition := (topic.PointerHead - len(topic.PointerPositions)); len(topic.PointerPositions[lowestPosition]) < 1; lowestPosition -= 1 {
 			//tombstone if no tombstone already
 			if topic.Messages[lowestPosition].tombstone == "" {
 				m := pubsub.Topics[topicName].Messages[lowestPosition]

@@ -6,6 +6,9 @@ import "encoding/json"
 type CreateUserResp struct {
 	Error string `json:"error,omitempty"`
 	UUID  string `json:"user_id,omitempty"`
+	//Subscriptions is len(User.Subscriptions)
+	Subscriptions int    `json:"subscriptions"`
+	Created       string `json:"created,omitempty"`
 }
 
 //MessageResp is the response from Message orientated requests
@@ -22,6 +25,9 @@ type TopicResp struct {
 	Status      string `json:"status"`
 	Creator     string `json:"creator"`
 	PointerHead int    `json:"pointer_head"`
+	//CanWrite shows if requester User can write to the topic (userID
+	// matches topic.Creator.ID)
+	CanWrite bool `json:"writable"`
 }
 
 //SubscribeResp is the response form for Subscription orientated requests
@@ -30,6 +36,9 @@ type SubscribeResp struct {
 	User   string `json:"user_id"`
 	Topic  string `json:"topic_name"`
 	Status string `json:"status"`
+	//CanWrite shows if the requester User can write to the topic (userID
+	// matches topic.Creator.ID)
+	CanWrite bool `json:"writable"`
 }
 
 //------------------------------------------- Request Struct

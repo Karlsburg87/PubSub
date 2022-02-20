@@ -3,6 +3,7 @@ package pubsub
 import (
 	"fmt"
 	"net/url"
+	"time"
 )
 
 //Subscribe method subscribes the user to the given topic using
@@ -60,8 +61,8 @@ func (user *User) WriteToTopic(topic *Topic, message Message) (Message, error) {
 	}
 	user.mu.Lock()
 	//Add message to topic's message queue
-	topic.PointerHead += 1
 	message.ID = topic.PointerHead
+	topic.PointerHead += 1
 	topic.Messages[topic.PointerHead] = message
 	user.mu.Unlock()
 	return message, nil
@@ -93,4 +94,19 @@ func (user *User) PullMessage(topic *Topic, messageID int) (Message, error) {
 		return msg, nil
 	}
 	return Message{}, fmt.Errorf("This message does not exist. Head point is %d", topic.PointerHead)
+}
+
+//------------------helpers
+//GetCreatedDateTime fetches the created datetime string and parses it
+func (user User) GetCreatedDateTime() (time.Time, error) {
+	if user.Created == "" {
+		return time.Time{}, fmt.Errorf("No date string exists.\nUser: %+v\n", user)
+	}
+	return time.Parse(time.RFC3339, user.Created)
+}
+
+//AddCreatedDatestring adds the given time to the message Created field as a formatted string
+func (user *User) AddCreatedDatestring(time.Time) string {
+	user.Created = time.Now().Format(time.RFC3339)
+	return user.Created
 }
