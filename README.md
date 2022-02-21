@@ -1,14 +1,25 @@
 [![Go Report Card](https://goreportcard.com/badge/github.com/CDennis-CR/PubSub)](https://goreportcard.com/report/github.com/CDennis-CR/PubSub)
 [![Run on Repl.it](https://repl.it/badge/github/CDennis-CR/PubSub)](https://repl.it/github/CDennis-CR/PubSub) 
 
-# PubSub
-An RESTful-like HTTP service to make signing up for event streams easy and open to anyone able to access the URI endpoint. No access permissions barriers or web UI required. Useful for passing in things like uptime stats.
+![Project Status](https://img.shields.io/badge/Status-Early%20Development-yellow?style=flat-square&cacheSeconds=3600)
 
-> Pubsub guarentees '*at least once*' message delilvery.
+# PubSub
+An ***RESTful-like*** HTTP service to make signing up for event streams easy and open to anyone able to access the URI endpoint. No access permissions barriers or web UI required. Useful for passing in things like uptime stats.
+
+> Pubsub guarentees '*at least once*' message delilvery - up until the subscription to the topic becomes *stale* after a period of inactivity
 
 Acknowledgement based system to ensure message delivery guarentees are met.
 - Push Subscriptions (Webhooks) need return a 200 or 201 status code to acknowlege. 
 - Message pull subscriptions acknowlege message receipt of earlier pointer positions when requesting a later pointer position.
+
+### RESTful-like?
+This implementation aims to be familiar for people used to integrating RESTful services without being strictly compliant with any common definition.
+
+The API is designed to be fully accessible purely through GET HTTP requests, in order to make it open to clients that do not have ready access to the full set of HTTP CRUD methods (e.g. browsers, webtool UIs, spreadsheets, etc). 
+
+To make this work, a custom verb list is used for appending to standardised endpoints. All arguments can be given through query parameters on static general URI paths.
+
+If you prefer to pass arguments via JSON in the request body, you can still do so, using the same static endpoints - or mix the two options.
 
 ## Status
 **pubSub** is in initial development (v0) stage and subject to constant change to its API.
@@ -24,7 +35,7 @@ Parameters can be sent by URL query, HTTP Post  JSON payload or a mixture of bot
 
 example URL encoded:
 ```http
-https://some.endpoint/users/create?username=usrname&password=pswrd
+https://some.endpoint/users/user/obtain?username=usrname&password=pswrd
 ```
 
 JSON format for post requests with all params: 
