@@ -3,6 +3,7 @@ package pubsub
 import (
 	"net/url"
 	"sync"
+	"time"
 )
 
 //PubSub is the core holder struct for the pubsub service
@@ -29,10 +30,13 @@ type Topics map[string]*Topic
 
 //Subscriber is the setup of a subscriber to a topic
 type Subscriber struct {
-	ID        string //User.UUID
-	User      *User
-	PushURL   *url.URL
-	tombstone string //timestamp - deleted in 10 minutes
+	ID              string //User.UUID
+	User            *User
+	PushURL         *url.URL
+	mu              *sync.Mutex
+	tombstone       string //timestamp - deleted in 10 minutes
+	lastpushAttempt time.Time
+	backoff         time.Duration //to allow for exponential backoff
 }
 
 //Subscribers is a map of subscribers

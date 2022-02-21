@@ -94,6 +94,10 @@ func (pubsub *PubSub) PushWebhooks() error {
 			//send message to all push subscribers
 			for subscriberID, subscriber := range topic.PointerPositions[msgID] {
 				if subscriber.PushURL != nil {
+					//exit it still need to backoff from last send
+					if !subscriber.lastpushAttempt.IsZero() && subscriber.lastpushAttempt.Add(subscriber.backoff).After(time.Now()) {
+						continue
+					}
 					//push to url and await for 200/201 acknolegement
 					msgParcel := MessageResp{
 						Topic:   topicID,
@@ -105,14 +109,32 @@ func (pubsub *PubSub) PushWebhooks() error {
 					} //?echo err and continue?
 					resp, err := http.Post(subscriber.PushURL.String(), "application/json", bytes.NewReader(parcel))
 					if err != nil || (resp.StatusCode != 200 && resp.StatusCode != 201) {
-						log.Println(fmt.Errorf("Could not deliver msg: %v", err))
+						log.Println(fmt.Errorf("Could not deliver msg: error: %v (StatusCode: %d)\nSubscriber: %s, [Message: %+v]", err, resp.StatusCode, subscriber.ID, msgParcel))
+						//set backoff for next attempt
+						subscriber.lastpushAttempt = time.Now()
+						if subscriber.backoff == 0 {
+							subscriber.backoff = 80 * time.Millisecond
+						}
+						subscriber.backoff = subscriber.backoff * 2
+						//copy back to core
+						pubsub.Topics[topicID].PointerPositions[msgID][subscriberID].mu.Lock()
+						pubsub.Topics[topicID].PointerPositions[msgID][subscriberID] = subscriber
+						pubsub.Topics[topicID].PointerPositions[msgID][subscriberID].mu.Unlock()
 						continue
 					}
 					//push subscriber pointer up an index place
-					pubsub.mu.Lock()
-					pubsub.Topics[topicID].PointerPositions[msgID+1][subscriberID] = pubsub.Topics[topicID].PointerPositions[msgID][subscriberID] //add new position
-					delete(pubsub.Topics[topicID].PointerPositions[msgID], subscriberID)                                                          //delete old position
-					pubsub.mu.Unlock()
+					pubsub.Topics[topicID].mu.Lock()
+					//reset the backoff fields
+					subscriber.lastpushAttempt = time.Time{}
+					subscriber.backoff = 80 * time.Millisecond
+					//move up to next pointer position
+					if _, ok := pubsub.Topics[topicID].PointerPositions[msgID+1]; !ok {
+						pubsub.Topics[topicID].PointerPositions[msgID+1] = make(Subscribers)
+					}
+					pubsub.Topics[topicID].PointerPositions[msgID+1][subscriberID] = subscriber
+					//delete previous pointer position record
+					delete(pubsub.Topics[topicID].PointerPositions[msgID], subscriberID)
+					pubsub.Topics[topicID].mu.Unlock()
 				}
 			}
 		}

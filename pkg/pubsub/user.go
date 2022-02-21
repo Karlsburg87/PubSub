@@ -3,6 +3,7 @@ package pubsub
 import (
 	"fmt"
 	"net/url"
+	"sync"
 	"time"
 )
 
@@ -24,6 +25,16 @@ func (user *User) Subscribe(topic *Topic, pushURL string) error {
 		ID:      user.UUID,
 		User:    user,
 		PushURL: url,
+		mu:      &sync.Mutex{},
+		backoff: 80 * time.Millisecond,
+	}
+
+	//unsubscribe from topic first if already a subscriber.
+	//This will ensure there are no multiple subscriptions in // various pointer positions. Will also give consistant
+	// expected performance for Subscription to be at the
+	// head position from the last point at which it was called
+	if err := user.Unsubscribe(topic); err != nil {
+		return fmt.Errorf("Error when unsubscribing before resubscribing", err)
 	}
 
 	user.mu.Lock()
@@ -65,7 +76,10 @@ func (user *User) Unsubscribe(topic *Topic) error {
 	user.mu.Unlock()
 
 	topic.mu.Lock()
-	delete(topic.PointerPositions[topic.PointerHead], user.UUID)
+	//may have subscription loc other than head position or subscribed more than once
+	for pos := range topic.PointerPositions {
+		delete(topic.PointerPositions[pos], user.UUID)
+	}
 	topic.mu.Unlock()
 
 	return nil
