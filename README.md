@@ -94,6 +94,6 @@ type IncomingReq struct{
 - [x] Implement Errors being parsed back to client via standard error object rather than status 5xx pages 
 - [ ] Persist messages in key-value database for disaster recovery
 - [ ] Error managment for issues that come up in `pubsub.metranome`
-- [ ] Include a Docker file for easy deployment
-- [ ] Inlude a Cloud Build YAML file for easy CICD to GCP Cloud Run
+- [x] Include a Dockerfile/Containerfile for easy deployment
+- [ ] Inlude a Cloud Build YAML file for easy CICD to GCP Cloud Compute Engine
 - [ ] Add a Bash script for easy local deploy for testing using Buildah and Podman
