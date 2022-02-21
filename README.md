@@ -2,7 +2,7 @@
 [![Run on Repl.it](https://repl.it/badge/github/CDennis-CR/PubSub)](https://repl.it/github/CDennis-CR/PubSub) 
 
 # PubSub
-An RESTful HTTP service to make signing up for event streams easy and open to anyone able to access the URI endpoint. No access permissions barriers or web UI required. Useful for passing in things like uptime stats.
+An RESTful-like HTTP service to make signing up for event streams easy and open to anyone able to access the URI endpoint. No access permissions barriers or web UI required. Useful for passing in things like uptime stats.
 
 > Pubsub guarentees '*at least once*' message delilvery.
 
@@ -96,4 +96,4 @@ type IncomingReq struct{
 - [ ] Error managment for issues that come up in `pubsub.metranome`
 - [x] Include a Dockerfile/Containerfile for easy deployment
 - [ ] Inlude a Cloud Build YAML file for easy CICD to GCP Cloud Compute Engine
-- [ ] Add a Bash script for easy local deploy for testing using Buildah and Podman
+- [x] Add a Bash script for easy local deploy for testing using Buildah and Podman
