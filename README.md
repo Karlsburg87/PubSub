@@ -21,13 +21,42 @@ To make this work, a custom verb list is used for appending to standardised endp
 
 If you prefer to pass arguments via JSON in the request body, you can still do so, using the same static endpoints - or mix the two options.
 
+## Project Goals
+This project aims to provide a performant publish and subscribe server for use in local testing and small-to-medium production workloads where event messages are non sensitive. Easily parachuted into projects with simple deployment, memorable API and SSE interface for web apps.
+
+> Goal 1: Simple
+
+ All in single Dockerfile. Evaluate on Replit with a click. Deploy with a `docker run -dt` command and config with command line args if you want to.
+
+It is aimed to be instantly familiar and usable to most newcomers with small background experience in APIs and event pipelines. Memorable endpoints. So simple, you can test it from your browser - or even pull data from a spreadsheet!
+
+> Goal 2: Accessible 
+
+Initially built for delivering open data to public consumers, security is **not** an initial project goal. On the contrary, the system is designed to make it very easy to discover and subscribe to event streams with passive sign-up and login mechanics. This allows for near annonymous access to data. Useful for things such as public uptime status webhook services. 
+
+*Of course you can still keep access restricted using a firewall or putting PubSub behind a proxy.*
+
+> Goal 3: Fast
+
+Benchmarks to follow (*see Roadmap section*)
+
 ## Status
 **pubSub** is in initial development (v0) stage and subject to constant change to its API.
 
 **Not yet suitable for deployment in production environments**
 
-## Data storage
-Pubsub is an in-memory system, however it will persist message data to a file-based KV database in future to assist with disaster recovery efforts. See the *Roadmap* section
+## Data Persistance *(Roadmap Feature)*
+Pubsub is an in-memory system, however it will persist message data to a file-based KV database and blob stores in future to assist with disaster recovery efforts. See the *Roadmap* section
+
+When implemented, messages will be stored in a local blob store with file name convention: `{topicName}/{messageID}`
+
+ Both subscriber and user lists in a local BoltDB KV store with:
+
+ - User keys convention: `user/{userID}`
+
+ - Subscriber keys convention: `sub/{topicName}/{messageID}/{subscriberID}`
+
+Data storage will shadow the in memory workflow and will only be called in the event of disaster recovery.
 
 ## Usage
 ### Request Params

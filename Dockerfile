@@ -25,7 +25,11 @@ COPY --from=build-env /pubsub/bin /bin/pubsub
 #Default root user container envars
 ARG SUPERADMINUSER="ping"
 ARG SUPERADMINPASSWORD="admin"
+ARG PORT="8080"
 ENV SUPERADMINUSER=${SUPERADMINUSER}
 ENV SUPERADMINPASSWORD=${SUPERADMINPASSWORD}
+ENV PORT=${PORT}
+
+EXPOSE 8080
 
 CMD ["/bin/pubsub"]
