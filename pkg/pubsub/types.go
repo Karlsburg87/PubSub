@@ -40,7 +40,7 @@ type Subscriber struct {
 }
 
 //Subscribers is a map of subscribers
-type Subscribers map[string]Subscriber //Subscriber.ID against subscriber
+type Subscribers map[string]*Subscriber //Subscriber.ID against subscriber
 
 //Message is a single message structure
 type Message struct {

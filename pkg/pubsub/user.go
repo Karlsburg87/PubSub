@@ -21,7 +21,7 @@ func (user *User) Subscribe(topic *Topic, pushURL string) error {
 		}
 	}
 	//Create Subsriber Object
-	sub := Subscriber{
+	sub := &Subscriber{
 		ID:      user.UUID,
 		User:    user,
 		PushURL: url,

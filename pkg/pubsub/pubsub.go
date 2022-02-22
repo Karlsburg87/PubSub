@@ -88,62 +88,74 @@ func (pubsub *PubSub) CreateTopic(topicName string, user *User) (*Topic, error) 
 //Should run through continuously
 func (pubsub *PubSub) PushWebhooks() error {
 	//cycle through Topics
-	for topicID, topic := range pubsub.Topics {
+	for _, topic := range pubsub.Topics {
 		//cycle through Messages
 		for msgID, message := range topic.Messages {
+			//cycle must complete before exit
+			wg := &sync.WaitGroup{}
 			//send message to all push subscribers
-			for subscriberID, subscriber := range topic.PointerPositions[msgID] {
-				if subscriber.PushURL != nil {
-					//exit it still need to backoff from last send
-					if !subscriber.lastpushAttempt.IsZero() && subscriber.lastpushAttempt.Add(subscriber.backoff).After(time.Now()) {
-						continue
-					}
-					//push to url and await for 200/201 acknolegement
-					msgParcel := MessageResp{
-						Topic:   topicID,
-						Message: message,
-					}
-					parcel, err := msgParcel.toJSON()
-					if err != nil {
-						return err
-					} //?echo err and continue?
-					resp, err := http.Post(subscriber.PushURL.String(), "application/json", bytes.NewReader(parcel))
-					if err != nil || (resp.StatusCode != 200 && resp.StatusCode != 201) {
-						log.Println(fmt.Errorf("Could not deliver msg: error: %v (StatusCode: %d)\nSubscriber: %s, [Message: %+v]", err, resp.StatusCode, subscriber.ID, msgParcel))
-						//set backoff for next attempt
-						subscriber.lastpushAttempt = time.Now()
-						if subscriber.backoff == 0 {
-							subscriber.backoff = 80 * time.Millisecond
-						}
-						subscriber.backoff = subscriber.backoff * 2
-						//cap exponential backoff at 1 hour
-						if subscriber.backoff > (60 * time.Minute) {
-							subscriber.backoff = 60 * time.Minute
-						}
-						//copy back to core
-						pubsub.Topics[topicID].PointerPositions[msgID][subscriberID].mu.Lock()
-						pubsub.Topics[topicID].PointerPositions[msgID][subscriberID] = subscriber
-						pubsub.Topics[topicID].PointerPositions[msgID][subscriberID].mu.Unlock()
-						continue
-					}
-					//push subscriber pointer up an index place
-					pubsub.Topics[topicID].mu.Lock()
-					//reset the backoff fields
-					subscriber.lastpushAttempt = time.Time{}
-					subscriber.backoff = 80 * time.Millisecond
-					//move up to next pointer position
-					if _, ok := pubsub.Topics[topicID].PointerPositions[msgID+1]; !ok {
-						pubsub.Topics[topicID].PointerPositions[msgID+1] = make(Subscribers)
-					}
-					pubsub.Topics[topicID].PointerPositions[msgID+1][subscriberID] = subscriber
-					//delete previous pointer position record
-					delete(pubsub.Topics[topicID].PointerPositions[msgID], subscriberID)
-					pubsub.Topics[topicID].mu.Unlock()
-				}
+			for _, subscriber := range topic.PointerPositions[msgID] {
+				wg.Add(1)
+				go pubsub.webhookRoutine(topic, message, subscriber, wg)
 			}
+			wg.Wait()
 		}
 	}
 	return nil
+}
+
+//webhookRoutine is the goroutine does the push via http.POST with built in exponential backoff from the default push cycle. Intended for use in PushWebhooks
+func (pubsub *PubSub) webhookRoutine(topic *Topic, message Message, subscriber *Subscriber, wg *sync.WaitGroup) {
+	defer wg.Done()
+	if subscriber.PushURL != nil {
+		//exit it still need to backoff from last send
+		if !subscriber.lastpushAttempt.IsZero() && subscriber.lastpushAttempt.Add(subscriber.backoff).After(time.Now()) {
+			return
+		}
+		//push to url and await for 200/201 acknolegement
+		msgParcel := MessageResp{
+			Topic:   topic.Name,
+			Message: message,
+		}
+		parcel, err := msgParcel.toJSON()
+		if err != nil { //This needs logging for followup as not dealt with here
+			log.Printf("Error converting to JSON from webhookRoutine goroutine: %v", err)
+			return
+		} //?echo err and continue?
+		resp, err := http.Post(subscriber.PushURL.String(), "application/json", bytes.NewReader(parcel))
+		if err != nil || (resp.StatusCode != 200 && resp.StatusCode != 201) {
+			//debug logging
+			log.Println(fmt.Errorf("Could not deliver msg: error: %v (StatusCode: %d)\nSubscriber: %s, [Message: %+v]", err, resp.StatusCode, subscriber.ID, msgParcel))
+
+			pubsub.Topics[topic.Name].mu.Lock()
+			//set backoff for next attempt
+			subscriber.lastpushAttempt = time.Now()
+			if subscriber.backoff == 0 {
+				subscriber.backoff = 80 * time.Millisecond
+			}
+			subscriber.backoff = subscriber.backoff * 2
+			//cap exponential backoff at 1 hour
+			if subscriber.backoff > (60 * time.Minute) {
+				subscriber.backoff = 60 * time.Minute
+			}
+
+			pubsub.Topics[topic.Name].mu.Unlock()
+			return
+		}
+		//push subscriber pointer up an index place
+		pubsub.Topics[topic.Name].mu.Lock()
+		//reset the backoff fields
+		subscriber.lastpushAttempt = time.Time{}
+		subscriber.backoff = 80 * time.Millisecond
+		//move up to next pointer position
+		if _, ok := pubsub.Topics[topic.Name].PointerPositions[message.ID+1]; !ok {
+			pubsub.Topics[topic.Name].PointerPositions[message.ID+1] = make(Subscribers)
+		}
+		pubsub.Topics[topic.Name].PointerPositions[message.ID+1][subscriber.ID] = subscriber
+		//delete previous pointer position record
+		delete(pubsub.Topics[topic.Name].PointerPositions[message.ID], subscriber.ID)
+		pubsub.Topics[topic.Name].mu.Unlock()
+	}
 }
 
 //Tombstone cycles through and does tombstoning and deletion activities
@@ -176,11 +188,15 @@ func (pubsub *PubSub) subscriptionTombstone(consideredStale, resurrectionOpportu
 			continue
 		}
 		for pointer, subscribers := range topic.PointerPositions {
+			//skip pointer to head+1 message as these are queued awaiting the next added message
+			if pointer > topic.PointerHead {
+				continue
+			}
 			//if pointer is to a message less than `consideredStale` old - leave alone
-			if t, err := topic.Messages[pointer].GetCreatedDateTime(); isStale(t, consideredStale) {
+			if t, err := topic.Messages[pointer].GetCreatedDateTime(); !isStale(t, consideredStale) {
 				if err != nil {
 					//send debug info to std.out
-					log.Printf("Error in GetCreatedDateTime from subscriptionTombstone around Topic: %s\nPointer: %d\nMessage Count: %d\nMessages: %+v", topic.Name, pointer, len(topic.Messages), topic.Messages)
+					log.Printf("{Error: \"GetCreatedDateTime from subscriptionTombstone\", Subscriber: %+v, Topic: \"%s\", Pointer: %d, Message Count: %d, Message: %+v}\n", topic.PointerPositions[pointer], topic.Name, pointer, len(topic.Messages), topic.Messages[pointer])
 
 					return err
 				}
