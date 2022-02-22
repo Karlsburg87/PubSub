@@ -4,7 +4,7 @@
 ![Project Status](https://img.shields.io/badge/Status-Early%20Development-yellow?style=flat-square&cacheSeconds=3600)
 
 # PubSub
-An ***RESTful-like*** HTTP service to make signing up for event streams easy and open to anyone able to access the URI endpoint. No access permissions barriers or web UI required. Useful for passing in things like uptime stats.
+An ***RESTful-like*** HTTP service to make signing up for event streams easy and open to anyone able to access the URI endpoint. Useful for passing in things like uptime stats.
 
 > Pubsub guarentees '*at least once*' message delilvery - up until the subscription to the topic becomes *stale* after a period of inactivity
 
@@ -93,7 +93,7 @@ type IncomingReq struct{
 ## Limitations
 1. Only the creator **User** of a topic can write to it
 1. A **User** is a disposable object that identifies credentials associated with a group of subscriptions. They are deleted when they are no longer associated with subscriptions. They are created passively when a username/password pair are used to subscribe or create a topic, so long as username does not exist already (failed request). In that case the User will either be logged in (if password matches) or the request will fail due to an unauthorised request.
-1. When a **Topic** no longer has any subscribers, it is deleted. Topics can be passively created again if any user attempts to write to the topic or actively by sending a request to the `/topic/create` endpoint. In which case that user will become the creator of the topic, and the only User authorised to write to it. This should not cause issues as the creator of a topic is automatically subscribed to it, so must actively unsubscribe, or allow the subscription to go stale and be tombstoned by not consuming the stream. As a failsafe, create a new user to consume the topic by webhook to keep alive.
+1. When a **Topic** no longer has any subscribers, it is deleted. Topics can be passively created again if any user attempts to write to the topic or actively by sending a request to the `topics/topic/create` endpoint. In which case that user will become the creator of the topic, and the only User authorised to write to it. This should not cause issues as the creator of a topic is automatically subscribed to it, so must actively unsubscribe, or allow the subscription to go stale and be tombstoned by not consuming the stream. As a failsafe, create a new user to consume the topic by webhook to keep alive.
 1. **Messages** that have been consumed and acknowleged by all subscribers are deleted. 
 1. Add a pushURL/WebhookURL to subscribe as a push subscriber. Otherwise you will have to pull the message via retrieval endpoint with a messageID to get the next message. You cannot mix methods or change subscription type after initial subscripton, without first unsubscribing and subscribing again.
 
@@ -108,3 +108,7 @@ type IncomingReq struct{
 - [x] Include a Dockerfile/Containerfile for easy deployment
 - [ ] Inlude a Cloud Build YAML file for easy CICD to GCP Cloud Compute Engine
 - [x] Add a Bash script for easy local deploy for testing using Buildah and Podman
+- [ ] Server Sent Events implementation for websites wanting to consume streams to display directly in the client UI
+- [ ] Implement front end web app for onboarding new users
+- [ ] Benchmarking
+- [ ] Unit tests
