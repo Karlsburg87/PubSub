@@ -116,10 +116,10 @@ func (pubsub *PubSub) PushWebhooks() error {
 							subscriber.backoff = 80 * time.Millisecond
 						}
 						subscriber.backoff = subscriber.backoff * 2
-            //cap exponential backoff at 1 hour
-            if subscriber.backoff > (60 * time.Minute){
-              subscriber.backoff = 60 * time.Minute
-            }
+						//cap exponential backoff at 1 hour
+						if subscriber.backoff > (60 * time.Minute) {
+							subscriber.backoff = 60 * time.Minute
+						}
 						//copy back to core
 						pubsub.Topics[topicID].PointerPositions[msgID][subscriberID].mu.Lock()
 						pubsub.Topics[topicID].PointerPositions[msgID][subscriberID] = subscriber

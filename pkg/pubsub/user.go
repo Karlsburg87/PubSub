@@ -30,11 +30,11 @@ func (user *User) Subscribe(topic *Topic, pushURL string) error {
 	}
 
 	//unsubscribe from topic first if already a subscriber.
-	//This will ensure there are no multiple subscriptions in // various pointer positions. Will also give consistant
+	//This will ensure there are no multiple subscriptions in // various pointer positions. Will also give consistent
 	// expected performance for Subscription to be at the
 	// head position from the last point at which it was called
 	if err := user.Unsubscribe(topic); err != nil {
-		return fmt.Errorf("Error when unsubscribing before resubscribing", err)
+		return fmt.Errorf("Error when unsubscribing before resubscribing: %v", err)
 	}
 
 	user.mu.Lock()
