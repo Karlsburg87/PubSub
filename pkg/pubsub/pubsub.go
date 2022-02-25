@@ -159,6 +159,10 @@ func (pubsub *PubSub) webhookRoutine(topic *Topic, message Message, subscriber *
 }
 
 //Tombstone cycles through and does tombstoning and deletion activities
+//
+//ConsideredStale is the time duration after which an item is considered stale and okay to tombstone
+//
+//resurrectionOpportunity is the time duration after which a tombstoned item can be deleted. This leaves an opportunity between tombstoning and deletion to be saved (by becoming active again)
 func (pubsub *PubSub) Tombstone(consideredStale, resurrectionOpportunity time.Duration) error {
 	//subscription tombstoning
 	if err := pubsub.subscriptionTombstone(consideredStale, resurrectionOpportunity); err != nil {

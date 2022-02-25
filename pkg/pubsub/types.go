@@ -37,6 +37,7 @@ type Subscriber struct {
 	tombstone       string //timestamp - deleted in 10 minutes
 	lastpushAttempt time.Time
 	backoff         time.Duration //to allow for exponential backoff
+	Creator         bool          //whether or not the subscriber is the creator. Used for `restore`
 }
 
 //Subscribers is a map of subscribers

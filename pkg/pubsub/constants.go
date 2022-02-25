@@ -1,6 +1,6 @@
 package pubsub
 
-//Enum for what type of HTTP Verb was used
+//verbType is an Enum for what type of HTTP Verb was used
 type verbType int
 
 const (
@@ -11,4 +11,12 @@ const (
 	pullVerb
 	subscribeVerb
 	unsubscribeVerb
+)
+
+//PersistUnit is an Enum type for what needs to be persisted for the defulat Persit implementation for streamers
+type PersistUnit int
+
+const (
+	PersistUser PersistUnit = iota
+	PersistSubscriber
 )

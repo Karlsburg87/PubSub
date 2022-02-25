@@ -19,26 +19,35 @@ The API is designed to be fully accessible purely through GET HTTP requests, in 
 
 To make this work, a custom verb list is used for appending to standardised endpoints. All arguments can be given through query parameters on static general URI paths.
 
-If you prefer to pass arguments via JSON in the request body, you can still do so, using the same static endpoints - or mix the two options.
+If you prefer to pass arguments via JSON in the request body, you can still do so using the same static endpoints - or mix the two options.
 
 ## Project Goals
-This project aims to provide a performant publish and subscribe server for use in local testing and small-to-medium production workloads where event messages are non sensitive. Easily parachuted into projects with simple deployment, memorable API and SSE interface for web apps.
+This project aims to provide a performant publish and subscribe server for use in local testing and small-to-medium production workloads where event messages are non sensitive. To be easily parachuted into projects with simple deployment, memorable API and SSE interface for web apps.
 
-> Goal 1: Simple
+In priority order:
 
- All in single Dockerfile. Evaluate on Replit with a click. Deploy with a `docker run -dt` command and config with command line args if you want to.
+> Goal 1: Simple to run
 
-It is aimed to be instantly familiar and usable to most newcomers with small background experience in APIs and event pipelines. Memorable endpoints. So simple, you can test it from your browser - or even pull data from a spreadsheet!
+- Packaged in single Dockerfile.
+- Evaluate on Replit with a click.
 
-> Goal 2: Accessible 
+Deploy with a `docker run` command and config with command line args or envars if you want to.
 
-Initially built for delivering open data to public consumers, security is **not** an initial project goal. On the contrary, the system is designed to make it very easy to discover and subscribe to event streams with passive sign-up and login mechanics. This allows for near annonymous access to data. Useful for things such as public uptime status webhook services. 
+Familiar to newcomers with some knowledge of APIs, with an interface simple and small enough to fit into working memory.
 
-*Of course you can still keep access restricted using a firewall or putting PubSub behind a proxy.*
+> Goal 2: Accessible to use
 
-> Goal 3: Fast
+Initially built for delivering open data to public consumers, focus is on open accessibility. 
+- Easy to discover and subscribe to message streams with a single command.
+- Easy to publish streams to websites using SSE
 
-Benchmarks to follow (*see Roadmap section*)
+> Goal 3: Fast & efficient
+
+The aim is to be quick *enough* and not use excessive resource. Our aim is to run a throughput of 60MB per second with a latency of 25 ms (200 MB/s load) on a Raspberry pi with resource to spare.
+
+[Competitor benchmarks](https://www.confluent.io/en-gb/blog/kafka-fastest-messaging-system/)
+
+PubSub Benchmarks to follow (*see Roadmap section*)
 
 ## Status
 **pubSub** is in initial development (v0) stage and subject to constant change to its API.
@@ -57,6 +66,8 @@ When implemented, messages will be stored in a local blob store with file name c
  - Subscriber keys convention: `sub/{topicName}/{messageID}/{subscriberID}`
 
 Data storage will shadow the in memory workflow and will only be called in the event of disaster recovery.
+
+All persisted data will be in the directory `/store` when run via the docker container with defaults.This can be persisted from the Docker container using volumes such as using the command ` docker run --volumes-from [...]`. To change the location, set the environment variable `PS_STORE`.
 
 ## Usage
 ### Request Params
@@ -119,12 +130,37 @@ type IncomingReq struct{
 |`/topics/topic/messages/write`|Write a message to a topic queue|topic, message|
 
 
-## Limitations
-1. Only the creator **User** of a topic can write to it
-1. A **User** is a disposable object that identifies credentials associated with a group of subscriptions. They are deleted when they are no longer associated with subscriptions. They are created passively when a username/password pair are used to subscribe or create a topic, so long as username does not exist already (failed request). In that case the User will either be logged in (if password matches) or the request will fail due to an unauthorised request.
-1. When a **Topic** no longer has any subscribers, it is deleted. Topics can be passively created again if any user attempts to write to the topic or actively by sending a request to the `topics/topic/create` endpoint. In which case that user will become the creator of the topic, and the only User authorised to write to it. This should not cause issues as the creator of a topic is automatically subscribed to it, so must actively unsubscribe, or allow the subscription to go stale and be tombstoned by not consuming the stream. As a failsafe, create a new user to consume the topic by webhook to keep alive.
-1. **Messages** that have been consumed and acknowleged by all subscribers are deleted. 
+## Object Life Cycles & Limitations
+### Users
+> A **User** is a disposable object that identifies credentials associated with a group of subscriptions.
+
+1. They are garbage collected when they are no longer associated with subscriptions.
+1. They are created passively when a username/password pair are used to subscribe or create a topic, so long as username does not exist already (this results in a failed request with an unauthorised access header).
+1. If successfull the **User** will either be logged in to an existing **User** (if password matches) or a new **User** created and immediately logged in to perform the action.
+1. You do not need to login explicitly using the `/users/user/obtain` endpoint, but it may be useful to check when the **User** was created or see which Topics it is subscribed to.
+  
+### Topics 
+> A **Topic** is a is a container for a stream of related messages.
+
+1. A **Topic** can be passively created if any **User** attempts to write to the topic by sending a request to the `topics/topic/create` endpoint. In which case that user will become the creator of the topic, and the only **User** authorised to write to it.
+    1. You can check who is the creator of an existing **Topic** without fear of passively creating it by using the `/topics/fetch` endpoint 
+1. When a **Topic** no longer has any subscribers, it is garbage collected.
+    1.  This should not cause issues as the **User** that is the creator of a **Topic** is automatically subscribed to it. So by default a new **Topic** will have 1 subscriber.
+1.  The creator's **Subscription** is always at the head position for a **Topic** to which it is the creator even without consuming or acknowledging any messages -and will not get in the way of tombstoning and garbage collection of old messages.
+    1.  The **Subscription** can still go stale, be tombstoned and eventually garbage collected by not writing to the stream. This will allow the Topic to be garbage collected as it will no longer have subscribers. You can prevent this by writing to the stream again - which will remove the active tombstones.
+
+### Subscription
+> A **Subscription** is an association of a **User** with a **Topic** to which the User wishes to be updated of new incoming **Messages**. It is used to maintain the position of the next message yet to be read by the **User** in the **Topic** queue.
+
+1. A **Subscription** is garbage collected if no new read acknoledgements have been received before the 'gone Stale' deadline.
+    1. This can be an issue when the **Topic** publishes messages at a very low frequency and the subscription is `push`. However it is necarssary to garbage collect inactive **Topics**. Configurations to the garbage collector (tombstoner config) can remedy this.   
+
+### Messages
+> A **Message** is the unit of data published to the **Topic** by the publisher to be consumed by the subscriber
+
+1. **Messages** that have been consumed and acknowleged by all subscribers are garbage collected. 
 1. Add a pushURL/WebhookURL to subscribe as a push subscriber. Otherwise you will have to pull the message via retrieval endpoint with a messageID to get the next message. You cannot mix methods or change subscription type after initial subscripton, without first unsubscribing and subscribing again.
+    1. You can do this in one action by using the `/topics/topic/subscribe` endpoint. However the subscription pointer will move to the Topic's head position and previous messages may become unobtainable.
 
 ## Roadmap
 - [x] Timed garbage collection of stale subscribers by first tombstoning subscribers preventing deletion of tickets over 50 places behind PointerHead, then deleting them on second pass if they are still there after a certain amount of time. Designed to prevent inactive subscribers forcing long term storage of messages (to maintain a stable service)
@@ -141,3 +177,5 @@ type IncomingReq struct{
 - [ ] Implement front end web app for onboarding new users
 - [ ] Benchmarking
 - [ ] Unit tests
+- [ ] Inform Push subscribers when their subscriptions have been garbage collected as this may be due to low frequency publishing rates of the Topic rather than inactive subscribers.
+- [ ] Add ability to config the tombstoner deadlines.

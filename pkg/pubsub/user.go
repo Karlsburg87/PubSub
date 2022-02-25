@@ -27,6 +27,7 @@ func (user *User) Subscribe(topic *Topic, pushURL string) error {
 		PushURL: url,
 		mu:      &sync.Mutex{},
 		backoff: 80 * time.Millisecond,
+		Creator: topic.Creator.UUID == user.UUID,
 	}
 
 	//unsubscribe from topic first if already a subscriber.
@@ -101,6 +102,9 @@ func (user *User) WriteToTopic(topic *Topic, message Message) (Message, error) {
 		return Message{}, err
 	}
 	topic.mu.Unlock()
+
+	//move the creator's auto subscription up to the PinterHead with no tombstones
+	user.Subscribe(topic, "") //removes any existing subscriptions
 
 	user.mu.Lock()
 	if err := user.removeTombstone(); err != nil {
