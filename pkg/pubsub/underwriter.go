@@ -64,7 +64,6 @@ func (uw Underwriter) WriteUser(user *User) error {
 		b := tx.Bucket([]byte("user"))
 		err := b.Put([]byte(user.UsernameHash), encUser.Bytes())
 		return err
-		return nil
 	})
 }
 
@@ -90,7 +89,7 @@ func (uw Underwriter) WriteSubscriber(subscriber *Subscriber, message Message, t
 //WriteMessage adds a message to the persistance layer
 func (uw Underwriter) WriteMessage(message Message, topic *Topic) error {
 	//store as file in `/store` directory
-	loc := path.Join(PersistBase, fmt.Sprintf("%s/%s.json", topic.Name, message.ID))
+	loc := path.Join(PersistBase, fmt.Sprintf("%s/%d.json", topic.Name, message.ID))
 	if err := os.MkdirAll(loc, 0766); err != nil {
 		return err
 	}
@@ -151,7 +150,7 @@ func (uw Underwriter) GetSubscriber(subscriberID string, messageID int, topicNam
 
 //GetMessage returns a single message by messageID and topicName
 func (uw Underwriter) GetMessage(messageID int, topicName string) (Message, error) {
-	file, err := os.Open(path.Join(PersistBase, fmt.Sprintf("%s/%s.json", topicName, messageID)))
+	file, err := os.Open(path.Join(PersistBase, fmt.Sprintf("%s/%d.json", topicName, messageID)))
 	if err != nil {
 		return Message{}, err
 	}
@@ -187,7 +186,7 @@ func (uw Underwriter) StreamMessages() (chan Streamer, error) {
 
 //DeleteUser accepts UserID which is the userhash string
 func (uw Underwriter) DeleteUser(userID string) error {
-	return uw.db.Update(func(tx *bolt.Tx) error {
+	return uw.db.Batch(func(tx *bolt.Tx) error {
 		b := tx.Bucket([]byte("user"))
 		err := b.Delete([]byte(userID))
 		return err
@@ -197,7 +196,7 @@ func (uw Underwriter) DeleteUser(userID string) error {
 //DeleteSubscriber accepts subscriberID (the userID of
 // the subscription), messageID and topicName
 func (uw Underwriter) DeleteSubscriber(topicName string, messageID int, subscriberID string) error {
-	return uw.db.Update(func(tx *bolt.Tx) error {
+	return uw.db.Batch(func(tx *bolt.Tx) error {
 		b := tx.Bucket([]byte("sub"))
 		err := b.Delete([]byte(fmt.Sprintf("%s/%d/%s", topicName, messageID, subscriberID)))
 		return err
@@ -206,7 +205,7 @@ func (uw Underwriter) DeleteSubscriber(topicName string, messageID int, subscrib
 
 //DeleteMessage accepts messageID and topicName
 func (uw Underwriter) DeleteMessage(messageID int, topicName string) error {
-	return os.Remove(path.Join(PersistBase, fmt.Sprintf("%s/%s.json", topicName, messageID)))
+	return os.Remove(path.Join(PersistBase, fmt.Sprintf("%s/%d.json", topicName, messageID)))
 }
 
 //-----------------------------------Helpers
@@ -253,7 +252,7 @@ func messageStreamer(basePath string, streamer chan Streamer) {
 	}
 }
 
-//generic boltDB bucket streaming
+//streamBucket is the user and subscriber object generic boltDB bucket streaming function
 func (uw Underwriter) streamBucket(streamType PersistUnit) (chan Streamer, error) {
 	streamer := make(chan Streamer)
 	bucketName := ""

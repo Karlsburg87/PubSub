@@ -57,9 +57,9 @@ PubSub Benchmarks to follow (*see Roadmap section*)
 ## Data Persistance *(Roadmap Feature)*
 Pubsub is an in-memory system, however it will persist message data to a file-based KV database and blob stores in future to assist with disaster recovery efforts. See the *Roadmap* section
 
-When implemented, messages will be stored in a local blob store with file name convention: `{topicName}/{messageID}`
+When implemented, messages will be stored in JSON format within a local blob store with file name convention: `{topicName}/{messageID}`
 
- Both subscriber and user lists in a local BoltDB KV store with:
+Both subscriber and user lists will be stored in GOB format within a local BoltDB KV store with:
 
  - User keys convention: `user/{userID}`
 
@@ -107,16 +107,18 @@ type IncomingReq struct{
   MessageID   int          `json:"message_id,omitempty"`
 }
 ```
-### Endpoints
+### Verbs
 |Verbs| Definition|
 |-|-|
 |Obtain| Get existing or create|
 |Create | Create new or error if already exists|
 |Fetch  | Get existing or error if does not exists|
 |Write  | Write data to server|
-|Pull   | Read information from server by http request (pull) after subscribing to a pull agreement of event data|
-|Subscribe/Unsubscribe | Setup or delete push/pull agreement|
+|Pull   | Read information from Topic's Message queue by http request (pull) after creating a pull subscription to a Topic|
+|Subscribe | Setup a push/pull association to a Topic|
+|Unsubscribe|Remove an push/pull association to a Topic|
 
+### Endpoints
 |Endpoint|Use|Params|
 |-|-|-|
 |`/users/user/obtain`|Explicitly creates a User and returns the User object. Returns the user UUID|Mandatory fields only|
