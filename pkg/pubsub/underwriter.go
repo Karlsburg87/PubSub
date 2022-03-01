@@ -10,6 +10,7 @@ import (
 	"log"
 	"os"
 	"path"
+	"strings"
 	"time"
 )
 
@@ -17,12 +18,15 @@ import (
 //
 //It stores all needed persisted files in the ./store directory
 type Underwriter struct {
-	pubsub *PubSub
-	db     *bolt.DB
+	*PersistCore
+	db *bolt.DB
 }
 
 func NewUnderwriter(pubsub *PubSub) (*Underwriter, error) {
-	db, err := bolt.Open(path.Join(PersistBase, "underwriter.db"), 0666, &bolt.Options{Timeout: 1 * time.Second})
+	if err := os.MkdirAll(PersistBase, 0766); err != nil {
+		return nil, err
+	}
+	db, err := bolt.Open(path.Join(PersistBase, "underwriter.db"), 0766, &bolt.Options{Timeout: 1 * time.Second})
 	if err != nil {
 		return nil, err
 	}
@@ -36,11 +40,56 @@ func NewUnderwriter(pubsub *PubSub) (*Underwriter, error) {
 		return nil
 	})
 	return &Underwriter{
-		pubsub: pubsub,
-		db:     db,
+		db:               db,
+    PersistCore: &PersistCore{
+		pubsub:           pubsub,
+		userWriter:       make(chan User),
+    userDeleter: make(chan string),
+		subscriberWriter: make(chan PersistSubscriberStruct),
+    subscriberDeleter: make(chan PersistSubscriberStruct),
+		messageWriter:    make(chan PersistMessageStruct),
+    messageDeleter: make(chan PersistMessageStruct),
+      },
 	}, nil
 }
 
+func (uw *Underwriter) Launch() error {
+	go func() {
+		if err := uw.WriteUser(); err != nil {
+			log.Panicln(err)
+		}
+	}()
+	go func() {
+		if err := uw.WriteSubscriber(); err != nil {
+			log.Panicln(err)
+		}
+	}()
+	go func() {
+		if err := uw.WriteMessage(); err != nil {
+			log.Panicln(err)
+		}
+	}()
+	go func() {
+		if err := uw.DeleteUser(); err != nil {
+			log.Panicln(err)
+		}
+	}()
+	go func() {
+		if err := uw.DeleteSubscriber(); err != nil {
+			log.Panicln(err)
+		}
+	}()
+	go func() {
+		if err := uw.DeleteMessage(); err != nil {
+			log.Panicln(err)
+		}
+	}()
+	return nil
+}
+
+func(uw *Underwriter)Switchboard()PersistCore{
+  return *uw.PersistCore
+}
 //TidyUp cleans up database connections before close.
 // Must run after NewUnderwriter call as defer
 // Persist.TidyUp()
@@ -50,66 +99,76 @@ func (uw *Underwriter) TidyUp() error {
 }
 
 //WriteUser adds a user to the persistance layer
-func (uw Underwriter) WriteUser(user *User) error {
-	//GOB encode user
-	var encUser bytes.Buffer
-	// Create an encoder and send a value.
-	enc := gob.NewEncoder(&encUser)
-	err := enc.Encode(user)
-	if err != nil {
-		return err
+func (uw *Underwriter) WriteUser() error {
+	for user := range uw.userWriter {
+		//GOB encode user
+		var encUser bytes.Buffer
+		// Create an encoder and send a value.
+		enc := gob.NewEncoder(&encUser)
+		err := enc.Encode(user)
+		if err != nil {
+			return err
+		}
+		//Save to DB
+		return uw.db.Batch(func(tx *bolt.Tx) error {
+			b := tx.Bucket([]byte("user"))
+			err := b.Put([]byte(user.UsernameHash), encUser.Bytes())
+			return err
+		})
 	}
-	//Save to DB
-	return uw.db.Batch(func(tx *bolt.Tx) error {
-		b := tx.Bucket([]byte("user"))
-		err := b.Put([]byte(user.UsernameHash), encUser.Bytes())
-		return err
-	})
+	return nil
 }
 
 //WriteSubscriber adds a subscriber to the persistance layer
-func (uw Underwriter) WriteSubscriber(subscriber *Subscriber, message Message, topic *Topic) error {
-	//GOB encode user
-	var encSubscriber bytes.Buffer
-	// Create an encoder and send a value.
-	enc := gob.NewEncoder(&encSubscriber)
-	err := enc.Encode(subscriber)
-	if err != nil {
-		return err
+func (uw *Underwriter) WriteSubscriber() error {
+	for subscriberStruct := range uw.subscriberWriter {
+		//GOB encode user
+		var encSubscriber bytes.Buffer
+		// Create an encoder and send a value.
+		enc := gob.NewEncoder(&encSubscriber)
+		err := enc.Encode(subscriberStruct.Subscriber)
+		if err != nil {
+			return err
+		}
+		//Save to DB
+		if err := uw.db.Batch(func(tx *bolt.Tx) error {
+			b := tx.Bucket([]byte("sub"))
+			err := b.Put([]byte(fmt.Sprintf("%s/%d/%s", subscriberStruct.TopicName, subscriberStruct.MessageID, subscriberStruct.Subscriber.ID)), encSubscriber.Bytes())
+			return err
+		}); err != nil {
+			return err
+		}
 	}
-	//Save to DB
-	return uw.db.Batch(func(tx *bolt.Tx) error {
-		b := tx.Bucket([]byte("sub"))
-		err := b.Put([]byte(fmt.Sprintf("%s/%d/%s", topic.Name, message.ID, subscriber.ID)), encSubscriber.Bytes())
-		return err
-		return nil
-	})
+	return nil
 }
 
 //WriteMessage adds a message to the persistance layer
-func (uw Underwriter) WriteMessage(message Message, topic *Topic) error {
-	//store as file in `/store` directory
-	loc := path.Join(PersistBase, fmt.Sprintf("%s/%d.json", topic.Name, message.ID))
-	if err := os.MkdirAll(loc, 0766); err != nil {
-		return err
-	}
-	file, err := os.Create(path.Join(loc, fmt.Sprintf("%s.json", message.ID)))
-	if err != nil {
-		return err
-	}
-	defer file.Close()
-	//write Json data to file - so human readable
-	enc := json.NewEncoder(file)
-	if err := enc.Encode(message); err != nil {
-		return err
-	}
+func (uw *Underwriter) WriteMessage() error {
+	for messageStruct := range uw.messageWriter {
+		//store as file in `/store` directory
+		dirStructure := path.Join(PersistBase, fmt.Sprintf("%s/", messageStruct.TopicName))
+		loc := path.Join(dirStructure, fmt.Sprintf("/%d.json", messageStruct.Message.ID))
 
+		if err := os.MkdirAll(dirStructure, 0766); err != nil {
+			return fmt.Errorf("Error creating dir structure in Underwriter.WriteMessage: %v", err)
+		}
+		file, err := os.Create(loc)
+		if err != nil {
+			return fmt.Errorf("Error creating message file (%s) in Underwriter.WriteMessage: %v", loc, err)
+		}
+		defer file.Close()
+		//write Json data to file - so human readable
+		enc := json.NewEncoder(file)
+		if err := enc.Encode(messageStruct.Message); err != nil {
+			return fmt.Errorf("Error encoding Message in Underwriter.WriteMessage: %v", err)
+		}
+	}
 	return nil
 }
 
 //GetUseret returns a single user by userID string
 // (Which is also UsernameHash of the user)
-func (uw Underwriter) GetUser(userID string) (User, error) {
+func (uw *Underwriter) GetUser(userID string) (User, error) {
 	var decUser User
 	//get User
 	if err := uw.db.View(func(tx *bolt.Tx) error {
@@ -124,13 +183,16 @@ func (uw Underwriter) GetUser(userID string) (User, error) {
 	}); err != nil {
 		return User{}, err
 	}
+	//update pointers
+	decUser.persistLayer = uw.pubsub.persistLayer
+
 	return decUser, nil
 }
 
 //GetSubscriberet returns a single subscriber by
 // subcriberID (which is also the userID attachted to
 // the subscriber),messageID and topicName
-func (uw Underwriter) GetSubscriber(subscriberID string, messageID int, topicName string) (Subscriber, error) {
+func (uw *Underwriter) GetSubscriber(subscriberID string, messageID int, topicName string) (Subscriber, error) {
 	var decSubscriber Subscriber
 	//get User
 	if err := uw.db.View(func(tx *bolt.Tx) error {
@@ -149,7 +211,7 @@ func (uw Underwriter) GetSubscriber(subscriberID string, messageID int, topicNam
 }
 
 //GetMessage returns a single message by messageID and topicName
-func (uw Underwriter) GetMessage(messageID int, topicName string) (Message, error) {
+func (uw *Underwriter) GetMessage(messageID int, topicName string) (Message, error) {
 	file, err := os.Open(path.Join(PersistBase, fmt.Sprintf("%s/%d.json", topicName, messageID)))
 	if err != nil {
 		return Message{}, err
@@ -165,19 +227,19 @@ func (uw Underwriter) GetMessage(messageID int, topicName string) (Message, erro
 
 //StreamUsers returns a chan through which it streams
 // all Users from the db
-func (uw Underwriter) StreamUsers() (chan Streamer, error) {
+func (uw *Underwriter) StreamUsers() (chan Streamer, error) {
 	return uw.streamBucket(PersistUser)
 }
 
 //StreamSubscribers returns a chan through which it streams all
 // Subscribers from the db
-func (uw Underwriter) StreamSubscribers() (chan Streamer, error) {
+func (uw *Underwriter) StreamSubscribers() (chan Streamer, error) {
 	return uw.streamBucket(PersistSubscriber)
 }
 
 //StreamMessages returns a chan through which it streams all
 // Messages from the db
-func (uw Underwriter) StreamMessages() (chan Streamer, error) {
+func (uw *Underwriter) StreamMessages() (chan Streamer, error) {
 	streamer := make(chan Streamer)
 	go messageStreamer(PersistBase, streamer)
 
@@ -185,27 +247,62 @@ func (uw Underwriter) StreamMessages() (chan Streamer, error) {
 }
 
 //DeleteUser accepts UserID which is the userhash string
-func (uw Underwriter) DeleteUser(userID string) error {
-	return uw.db.Batch(func(tx *bolt.Tx) error {
+func (uw *Underwriter) DeleteUser() error {
+  for usrID:=range uw.userDeleter{if err:= uw.db.Batch(func(tx *bolt.Tx) error {
 		b := tx.Bucket([]byte("user"))
-		err := b.Delete([]byte(userID))
+		err := b.Delete([]byte(usrID))
 		return err
-	})
+	});err!=nil{
+  return err
+  }
+}
+return nil
 }
 
 //DeleteSubscriber accepts subscriberID (the userID of
 // the subscription), messageID and topicName
-func (uw Underwriter) DeleteSubscriber(topicName string, messageID int, subscriberID string) error {
-	return uw.db.Batch(func(tx *bolt.Tx) error {
+//
+//Add messageID as -1 if not available. Func will they cycle through the topic and delete matches to subscriberID
+func (uw *Underwriter) DeleteSubscriber() error {
+  for subsc := range uw.subscriberDeleter{
+	if err:= uw.db.Batch(func(tx *bolt.Tx) error {
 		b := tx.Bucket([]byte("sub"))
-		err := b.Delete([]byte(fmt.Sprintf("%s/%d/%s", topicName, messageID, subscriberID)))
-		return err
-	})
+		if subsc.MessageID >= 0 {
+			if err := b.Delete([]byte(fmt.Sprintf("%s/%d/%s", subsc.TopicName, subsc.MessageID, subsc.SubscriberID))); err != nil {
+				return fmt.Errorf("Error issueing Subscriber Delete in BoltDB:%v", err)
+			}
+			return nil
+		}
+		c := b.Cursor()
+
+		//cycle through all messages in topic and delete matching subscriberID
+		prefix := []byte(fmt.Sprintf("%s/", subsc.TopicName))
+		for k, _ := c.Seek(prefix); k != nil && bytes.HasPrefix(k, prefix); k, _ = c.Next() {
+			//check suffix
+			if strings.HasSuffix(string(k), subsc.SubscriberID) {
+				if err := b.Delete(k); err != nil {
+					return fmt.Errorf("Error doing delete of prefix/suffix match in Subscriber Delete in BoltDB :%v", err)
+				}
+			}
+
+		}
+
+		return nil
+	});err!=nil{
+  return err
+  }
+  }
+return nil
 }
 
 //DeleteMessage accepts messageID and topicName
-func (uw Underwriter) DeleteMessage(messageID int, topicName string) error {
-	return os.Remove(path.Join(PersistBase, fmt.Sprintf("%s/%d.json", topicName, messageID)))
+func (uw *Underwriter) DeleteMessage() error {
+	for msg := range uw.messageDeleter {
+		if err := os.Remove(path.Join(PersistBase, fmt.Sprintf("%s/%d.json", msg.TopicName, msg.MessageID))); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 //-----------------------------------Helpers

@@ -25,7 +25,7 @@ func (user *User) Subscribe(topic *Topic, pushURL string) error {
 		ID:      user.UUID,
 		User:    user,
 		PushURL: url,
-		mu:      &sync.Mutex{},
+		mu:      &sync.RWMutex{},
 		backoff: 80 * time.Millisecond,
 		Creator: topic.Creator.UUID == user.UUID,
 	}
@@ -43,6 +43,7 @@ func (user *User) Subscribe(topic *Topic, pushURL string) error {
 	user.Subscriptions[topic.Name] = pushURL
 	//remove any user tombstones
 	if err := user.removeTombstone(); err != nil {
+		user.mu.Unlock()
 		return err
 	}
 	user.mu.Unlock()
@@ -56,9 +57,17 @@ func (user *User) Subscribe(topic *Topic, pushURL string) error {
 	topic.PointerPositions[topic.PointerHead][sub.ID] = sub
 	//remove any topic tombstones
 	if err := topic.removeTombstone(); err != nil {
+		topic.mu.Unlock()
 		return err
 	}
 	topic.mu.Unlock()
+
+	//persist the Subscriptions
+	user.persistLayer.Switchboard().subscriberWriter <- PersistSubscriberStruct{
+		Subscriber: *sub,
+		MessageID:  topic.PointerHead,
+		TopicName:  topic.Name,
+	}
 
 	return nil
 }
@@ -72,6 +81,7 @@ func (user *User) Unsubscribe(topic *Topic) error {
 	// longer receive messages
 	//remove any user tombstones
 	if err := user.removeTombstone(); err != nil {
+		user.mu.Unlock()
 		return err
 	}
 	user.mu.Unlock()
@@ -82,6 +92,13 @@ func (user *User) Unsubscribe(topic *Topic) error {
 		delete(topic.PointerPositions[pos], user.UUID)
 	}
 	topic.mu.Unlock()
+
+	//delete from persist layer
+user.persistLayer.Switchboard().subscriberDeleter <- PersistSubscriberStruct{
+  TopicName: topic.Name,
+  MessageID:-1,
+  SubscriberID:user.UUID,
+}
 
 	return nil
 }
@@ -99,6 +116,7 @@ func (user *User) WriteToTopic(topic *Topic, message Message) (Message, error) {
 	topic.PointerHead += 1
 	//remove any topic tombstones
 	if err := topic.removeTombstone(); err != nil {
+		topic.mu.Unlock()
 		return Message{}, err
 	}
 	topic.mu.Unlock()
@@ -108,22 +126,34 @@ func (user *User) WriteToTopic(topic *Topic, message Message) (Message, error) {
 
 	user.mu.Lock()
 	if err := user.removeTombstone(); err != nil {
+		user.mu.Unlock()
 		return Message{}, err
 	}
 	user.mu.Unlock()
+
+	//Persist message
+	user.persistLayer.Switchboard().messageWriter <- PersistMessageStruct{
+		Message:   message,
+		TopicName: topic.Name,
+	}
+
 	return message, nil
 }
 
 //PullMessage retrieves a message from the Topic message queue if the user is subscibed
 func (user *User) PullMessage(topic *Topic, messageID int) (Message, error) {
 	//check user is subscribed and isn't pulling a push sub
+	user.mu.RLock()
 	pushURL, ok := user.Subscriptions[topic.Name]
+	user.mu.RUnlock()
 	if !ok {
 		return Message{}, fmt.Errorf("User not subscribed to Topic")
 	} else if pushURL != "" {
 		return Message{}, fmt.Errorf("Not Allowed. User attempting to pull from push subscription")
 	}
 	//get message from position if exists
+	topic.mu.Lock()
+	defer topic.mu.Unlock()
 	if msg, ok := topic.Messages[messageID]; ok {
 		//Move pointer
 		for pos, subs := range topic.PointerPositions {
@@ -131,10 +161,8 @@ func (user *User) PullMessage(topic *Topic, messageID int) (Message, error) {
 				if messageID > pos {
 					break
 				}
-				topic.mu.Lock()
 				topic.PointerPositions[messageID][user.UUID] = s
 				delete(topic.PointerPositions[pos], user.UUID)
-				topic.mu.Unlock()
 
 				user.mu.Lock()
 				//remove any user tombstones

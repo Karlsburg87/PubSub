@@ -31,7 +31,7 @@ func createNewUser(username, password string) (*User, error) {
 	user := &User{
 		UsernameHash:  fmt.Sprintf("%x", u.Sum(nil)),
 		PasswordHash:  fmt.Sprintf("%x", p.Sum(nil)),
-		mu:            &sync.Mutex{},
+		mu:            &sync.RWMutex{},
 		Subscriptions: make(map[string]string),
 	}
 	//add username to password for uuid

@@ -17,17 +17,41 @@ func init() {
 	}
 }
 
+//PersistCore is the minimum fields an implementor of Persist should have
+type PersistCore struct {
+	pubsub *PubSub
+
+	userWriter       chan User                    //userWriter used for saving User data in persistant layer
+	subscriberWriter chan PersistSubscriberStruct //subscriberWriter chan to persist layer for saving
+	messageWriter    chan PersistMessageStruct    // messageWriter chan to persist layer for saving
+
+	userDeleter       chan string                  //userDeleter takes a user.UUID as input
+	subscriberDeleter chan PersistSubscriberStruct //subscriberDeleter takes data for sub deletion
+	messageDeleter    chan PersistMessageStruct    //messageDeleter takes data for msg deletion
+}
+
 //Persist is the interface for adding persistant storage
 type Persist interface {
-	//TidyUp is where to put the close down work. Usually to close
-	// files or databases. Usually used as `defer Persist.TidyUp()`
+	//Launch starts up goroutines
+	Launch() error
+  //OutputSwitchboard returns a PersistCore object 
+  // within which to send messages to Write... 
+  // and Delete... methods
+  Switchboard() PersistCore
+	//TidyUp is where to put the close down work. Usually 
+  // to close
+	// files or databases. Usually used as `defer 
+  // Persist.TidyUp()`
 	TidyUp() error
-	//WriteUser adds a user to the persistance layer
-	WriteUser(*User) error
-	//WriteSubscriber adds a subscriber to the persistance layer
-	WriteSubscriber(*Subscriber, Message, *Topic) error
-	//WriteMessage adds a message to the persistance layer
-	WriteMessage(Message, *Topic) error
+	//WriteUser adds a user to the persistance layer from 
+  // a User chan
+	WriteUser() error
+	//WriteSubscriber adds a subscriber to the persistance 
+  // layer from persistSubscriberStruct chan
+	WriteSubscriber() error
+	//WriteMessage adds a message to the persistance layer 
+  // with from persistMessageStruct
+	WriteMessage() error
 	//GetUseret returns a single user by userID string
 	// (Which is also UsernameHash of the user)
 	GetUser(string) (User, error)
@@ -47,11 +71,14 @@ type Persist interface {
 	// Messages from the db
 	StreamMessages() (chan Streamer, error)
 	//DeleteUser accepts UserID which is the userhash string
-	DeleteUser(string) error
-	//DeleteSubscriber accepts subscriberID (the userID of the subscription), messageID and topicName
-	DeleteSubscriber(string, int, string) error
+	DeleteUser() error
+	//DeleteSubscriber accepts subscriberID (the userID of the subscription),
+	// topicName.
+	//
+	//Add messageID as -1 if not available. Func will they cycle through the topic and delete matches to subscriberID
+	DeleteSubscriber() error
 	//DeleteMessage accepts messageID and topicName
-	DeleteMessage(int, string) error
+	DeleteMessage() error
 }
 
 //Streamer is the response object from Stream restore methods of
@@ -68,6 +95,21 @@ type Streamer struct {
 	//or just:
 	// {bucketName/}UserID
 	Key string
+}
+
+//persistSubscriberStruct is a channel object for sending // messages to be saved by the persist layer
+type PersistSubscriberStruct struct {
+	Subscriber   Subscriber //for saving
+	MessageID    int
+	TopicName    string
+	SubscriberID string //for deletions
+}
+
+//persistMessageStruct is a channel object for sending // messages to be saved by the persist layer
+type PersistMessageStruct struct {
+	Message   Message //for saving
+	TopicName string
+	MessageID int //for deletions
 }
 
 //restore reinstates a snapshot back to memory if it exists

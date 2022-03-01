@@ -10,7 +10,9 @@ import (
 type PubSub struct {
 	Topics Topics
 	Users  Users
-	mu     *sync.Mutex
+	mu     *sync.RWMutex
+	//persistLayer is the data persistance interface
+	persistLayer Persist
 }
 
 //Topic is the setup for topics
@@ -21,7 +23,7 @@ type Topic struct {
 	Messages         map[int]Message     //message queue
 	PointerPositions map[int]Subscribers //pointer position against subscribers at that position
 	PointerHead      int                 //latest/highest Messages key/ID.
-	mu               *sync.Mutex
+	mu               *sync.RWMutex
 	tombstone        string //timestamp - deleted in 10 minutes
 }
 
@@ -33,7 +35,7 @@ type Subscriber struct {
 	ID              string //User.UUID
 	User            *User
 	PushURL         *url.URL
-	mu              *sync.Mutex
+	mu              *sync.RWMutex
 	tombstone       string //timestamp - deleted in 10 minutes
 	lastpushAttempt time.Time
 	backoff         time.Duration //to allow for exponential backoff
@@ -58,8 +60,10 @@ type User struct {
 	PasswordHash  string
 	Subscriptions map[string]string //Topic Names key against pushURL
 	Created       string
-	mu            *sync.Mutex
+	mu            *sync.RWMutex
 	tombstone     string //timestamp - deleted in 10 minutes
+	//persistLayer is the data persistance interface
+	persistLayer Persist
 }
 
 //Users is a map of User by "UsernameHash" key with value of User

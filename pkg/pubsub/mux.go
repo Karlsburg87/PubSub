@@ -21,7 +21,7 @@ import (
 //Pull   : Read information from server by http request (pull) after subscribing to a pull agreement of event data
 //
 //Subscribe/Unsubscribe : Setup or delete push/pull agreement
-func CreateMux() *http.ServeMux {
+func CreateMux() (*http.ServeMux, *PubSub) {
 	mux := http.NewServeMux()
 	//shared mux resources and boot superuser and core struct
 	pubsub := getReady("ping", "pingpassword")
@@ -59,7 +59,7 @@ func CreateMux() *http.ServeMux {
 		}
 	})
 
-	return mux
+	return mux, pubsub
 }
 
 //----------------Handlers

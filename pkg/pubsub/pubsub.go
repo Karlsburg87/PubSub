@@ -9,6 +9,13 @@ import (
 	"time"
 )
 
+func (pubsub *PubSub) Close() error {
+	if err := pubsub.persistLayer.TidyUp(); err != nil {
+		return err
+	}
+	return nil
+}
+
 //GetUser maintains the user list
 //
 //Returns existing user record if usernameHash and passwordHash match
@@ -19,21 +26,27 @@ func (pubsub *PubSub) GetUser(username, password string) (*User, error) {
 	if err != nil {
 		return nil, err
 	}
-
+	pubsub.mu.RLock()
 	if rec, ok := pubsub.Users[user.UsernameHash]; ok { //username found so check password...
 		if user.PasswordHash == rec.PasswordHash { //password correct so return User
+			pubsub.mu.RUnlock()
 			return rec, nil
 		}
 		//password incorrect return error
-		log.Printf("Incorrect Username and Password pair : User UUID %s", rec.UUID)
+		pubsub.mu.RUnlock()
 		return nil, fmt.Errorf("User already exists. Please enter correct credentials to login or select a new username to create a new user.")
 	}
-	//create user if no username exists
+	pubsub.mu.RUnlock()
+	//share access to the core persistLayer with new user - no lock as init once at startup
+	user.persistLayer = pubsub.persistLayer
+	//add user if no username exists
 	pubsub.mu.Lock()
 	pubsub.Users[user.UsernameHash] = user
 	pubsub.mu.Unlock()
+	//Persist the newly created user
+	pubsub.persistLayer.Switchboard().userWriter <- *user
 
-	return pubsub.Users[user.UsernameHash], nil
+	return user, nil
 }
 
 //GetTopic gets a topic. If it does not exist it creates a new topic
@@ -47,6 +60,8 @@ func (pubsub *PubSub) GetTopic(topicName string, user *User) (topic *Topic, err 
 
 //FetchTopic fetches a topic or returns an error if not found
 func (pubsub *PubSub) FetchTopic(topicName string, user *User) (*Topic, error) {
+	pubsub.mu.RLock()
+	defer pubsub.mu.RUnlock()
 	if topic, ok := pubsub.Topics[topicName]; ok {
 		return topic, nil
 	}
@@ -56,19 +71,24 @@ func (pubsub *PubSub) FetchTopic(topicName string, user *User) (*Topic, error) {
 //CreateTopic creates a topic or returns an error if already exists
 func (pubsub *PubSub) CreateTopic(topicName string, user *User) (*Topic, error) {
 	//Return error if the topic already exists
+	pubsub.mu.RLock()
 	if _, ok := pubsub.Topics[topicName]; ok {
+		pubsub.mu.RUnlock()
 		return nil, fmt.Errorf("Topic already exists")
 	}
+	pubsub.mu.RUnlock()
+
 	newTopic := &Topic{
 		Creator:          user,
 		Name:             topicName,
 		PointerHead:      0,
 		PointerPositions: make(map[int]Subscribers),
 		Messages:         make(map[int]Message),
-		mu:               &sync.Mutex{},
+		mu:               &sync.RWMutex{},
 	}
 	//Add the topic to the public topic list
 	pubsub.mu.Lock()
+	defer pubsub.mu.Unlock()
 	pubsub.Topics[newTopic.Name] = newTopic
 	//subscribe the User
 	p := pubsub.Topics[topicName]
@@ -77,7 +97,6 @@ func (pubsub *PubSub) CreateTopic(topicName string, user *User) (*Topic, error) 
 	if err := user.removeTombstone(); err != nil {
 		return nil, err
 	}
-	pubsub.mu.Unlock()
 
 	return p, nil
 }
@@ -94,10 +113,12 @@ func (pubsub *PubSub) PushWebhooks() error {
 			//cycle must complete before exit
 			wg := &sync.WaitGroup{}
 			//send message to all push subscribers
+			topic.mu.RLock()
 			for _, subscriber := range topic.PointerPositions[msgID] {
 				wg.Add(1)
 				go pubsub.webhookRoutine(topic, message, subscriber, wg)
 			}
+			topic.mu.RUnlock()
 			wg.Wait()
 		}
 	}
@@ -127,7 +148,11 @@ func (pubsub *PubSub) webhookRoutine(topic *Topic, message Message, subscriber *
 			//debug logging
 			log.Println(fmt.Errorf("Could not deliver msg: error: %v (StatusCode: %d)\nSubscriber: %s, [Message: %+v]", err, resp.StatusCode, subscriber.ID, msgParcel))
 
-			pubsub.Topics[topic.Name].mu.Lock()
+			pubsub.mu.RLock()
+			p := pubsub.Topics[topic.Name]
+			pubsub.mu.RUnlock()
+
+			p.mu.Lock()
 			//set backoff for next attempt
 			subscriber.lastpushAttempt = time.Now()
 			if subscriber.backoff == 0 {
@@ -138,12 +163,16 @@ func (pubsub *PubSub) webhookRoutine(topic *Topic, message Message, subscriber *
 			if subscriber.backoff > (60 * time.Minute) {
 				subscriber.backoff = 60 * time.Minute
 			}
+			p.mu.Unlock()
 
-			pubsub.Topics[topic.Name].mu.Unlock()
 			return
 		}
 		//push subscriber pointer up an index place
-		pubsub.Topics[topic.Name].mu.Lock()
+		pubsub.mu.RLock()
+		p := pubsub.Topics[topic.Name]
+		pubsub.mu.RUnlock()
+
+		p.mu.Lock()
 		//reset the backoff fields
 		subscriber.lastpushAttempt = time.Time{}
 		subscriber.backoff = 80 * time.Millisecond
@@ -154,7 +183,7 @@ func (pubsub *PubSub) webhookRoutine(topic *Topic, message Message, subscriber *
 		pubsub.Topics[topic.Name].PointerPositions[message.ID+1][subscriber.ID] = subscriber
 		//delete previous pointer position record
 		delete(pubsub.Topics[topic.Name].PointerPositions[message.ID], subscriber.ID)
-		pubsub.Topics[topic.Name].mu.Unlock()
+		p.mu.Unlock()
 	}
 }
 
@@ -163,7 +192,14 @@ func (pubsub *PubSub) webhookRoutine(topic *Topic, message Message, subscriber *
 //ConsideredStale is the time duration after which an item is considered stale and okay to tombstone
 //
 //resurrectionOpportunity is the time duration after which a tombstoned item can be deleted. This leaves an opportunity between tombstoning and deletion to be saved (by becoming active again)
+//
+//
+//N.B. This function blocks all PubSub activity with a PubSub Lock - so should be run conservatively and opportunistically
 func (pubsub *PubSub) Tombstone(consideredStale, resurrectionOpportunity time.Duration) error {
+	//This function blocks all PubSub execution so should be run conservatively and opportunistically
+	log.Println("Tombstone Procedure KO")
+  pubsub.mu.Lock()
+  defer pubsub.mu.Unlock()
 	//subscription tombstoning
 	if err := pubsub.subscriptionTombstone(consideredStale, resurrectionOpportunity); err != nil {
 		return err
@@ -186,6 +222,7 @@ func (pubsub *PubSub) Tombstone(consideredStale, resurrectionOpportunity time.Du
 
 //subscriptionTombstone used in tombstone for running tombstone and delete functions on Subscription objects
 func (pubsub *PubSub) subscriptionTombstone(consideredStale, resurrectionOpportunity time.Duration) error {
+
 	for _, topic := range pubsub.Topics {
 		//skip topic if has no subscribers or if topic has no messages
 		if len(topic.PointerPositions) < 1 || len(topic.Messages) < 1 {
@@ -218,7 +255,12 @@ func (pubsub *PubSub) subscriptionTombstone(consideredStale, resurrectionOpportu
 						delete(topic.PointerPositions[pointer], subscriber.ID)
 						//also delete User Subscriptions list
 						delete(pubsub.Users[subscriber.ID].Subscriptions, topic.Name)
-
+						//delete from persist store
+            pubsub.persistLayer.Switchboard().subscriberDeleter <- PersistSubscriberStruct{
+              MessageID: pointer,
+	            TopicName: topic.Name,
+	            SubscriberID: subscriber.ID,
+            }
 					}
 					continue
 				}
@@ -243,7 +285,7 @@ func (pubsub *PubSub) messageTombstone(resurrectionOpportunity time.Duration) er
 			continue
 		}
 		//delete messages from bottom up where subscriber length is 0
-		for lowestPosition := (topic.PointerHead - len(topic.PointerPositions)); len(topic.PointerPositions[lowestPosition]) < 1; lowestPosition -= 1 {
+		for lowestPosition := (topic.PointerHead - len(topic.PointerPositions)); len(topic.PointerPositions[lowestPosition]) < 1 && topic.PointerPositions[lowestPosition] !=nil ; lowestPosition += 1 {
 			//tombstone if no tombstone already
 			if topic.Messages[lowestPosition].tombstone == "" {
 				m := pubsub.Topics[topicName].Messages[lowestPosition]
@@ -258,6 +300,11 @@ func (pubsub *PubSub) messageTombstone(resurrectionOpportunity time.Duration) er
 			//check if tombstone is older than resurrectionOpportunity duration
 			if isStale(tombstone, resurrectionOpportunity) {
 				delete(topic.Messages, lowestPosition)
+				//remove from persist store
+        pubsub.persistLayer.Switchboard().messageDeleter <- PersistMessageStruct{          
+	TopicName:topicName,
+	MessageID:lowestPosition,
+        }
 			}
 		}
 	}
@@ -311,6 +358,8 @@ func (pubsub *PubSub) userTombstone(resurrectionOpportunity time.Duration) error
 		}
 		if isStale(d, resurrectionOpportunity) {
 			delete(pubsub.Users, usr)
+			//delete from persist store
+    pubsub.persistLayer.Switchboard().userDeleter <- usr
 		}
 	}
 	return nil

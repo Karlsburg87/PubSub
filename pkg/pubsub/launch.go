@@ -1,6 +1,7 @@
 package pubsub
 
 import (
+	"fmt"
 	"log"
 	"sync"
 )
@@ -21,10 +22,16 @@ func getReady(superUsername, superUserpassword string) *PubSub {
 	pubsub := &PubSub{
 		Topics: make(Topics),
 		Users:  users,
-		mu:     &sync.Mutex{},
+		mu:     &sync.RWMutex{},
 	}
 	//start regular task ticks
 	go pubsub.metranome()
+	//start persistance layer
+	pubsub.persistLayer, err = NewUnderwriter(pubsub)
+	if err != nil {
+		log.Fatalln(fmt.Errorf("Error spinning up new Underwriter object: %v", err))
+	}
+	pubsub.persistLayer.Launch()
 
 	return pubsub
 }
