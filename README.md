@@ -170,7 +170,7 @@ type IncomingReq struct{
 - [x] Implement deletion of User when no longer subscribed to any topic
 - [x] Implement deletion of Topic when no longer has any subscribers
 - [x] Implement Errors being parsed back to client via standard error object rather than status 5xx pages 
-- [ ] Persist messages in key-value database for disaster recovery
+- [x] Persist messages in key-value database for disaster recovery
 - [ ] Error managment for issues that come up in `pubsub.metranome`
 - [x] Include a Dockerfile/Containerfile for easy deployment
 - [ ] Inlude a Cloud Build YAML file for easy CICD to GCP Cloud Compute Engine
