@@ -104,7 +104,7 @@ func subscriptionSubscribeHandler(rw http.ResponseWriter, r *http.Request, pubsu
 		User:     user.UUID,
 		Topic:    topic.Name,
 		Status:   "Subscribed",
-		CanWrite: user.UUID == topic.Creator.UUID,
+		CanWrite: user.UUID == topic.Creator,
 	}
 	//respond
 	respondMuxHTTP(rw, response)
@@ -132,7 +132,7 @@ func subscriptionUnsubscribeHandler(rw http.ResponseWriter, r *http.Request, pub
 		User:     user.UUID,
 		Topic:    topic.Name,
 		Status:   "Unsubscribed",
-		CanWrite: user.UUID == topic.Creator.UUID,
+		CanWrite: user.UUID == topic.Creator,
 	}
 
 	//respond
@@ -185,8 +185,8 @@ func topicRetrieveHandler(rw http.ResponseWriter, r *http.Request, pubsub *PubSu
 		Topic:       topic.Name,
 		Status:      "Active",
 		PointerHead: topic.PointerHead,
-		Creator:     topic.Creator.UsernameHash,
-		CanWrite:    user.UUID == topic.Creator.UUID,
+		Creator:     topic.Creator,
+		CanWrite:    user.UUID == topic.Creator,
 	}
 	//respond
 	respondMuxHTTP(rw, response)

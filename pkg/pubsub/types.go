@@ -18,7 +18,7 @@ type PubSub struct {
 //Topic is the setup for topics
 type Topic struct {
 	//ID               int                 //sequential number--unused: safe to delete--
-	Creator          *User               //only User that can write to the topic
+	Creator          string              //Creater is a User ID for the creator user. Only User that can write to the topic
 	Name             string              //user given name for the topic (sanitized)
 	Messages         map[int]Message     //message queue
 	PointerPositions map[int]Subscribers //pointer position against subscribers at that position
@@ -33,7 +33,6 @@ type Topics map[string]*Topic
 //Subscriber is the setup of a subscriber to a topic
 type Subscriber struct {
 	ID              string //User.UUID
-	User            *User
 	PushURL         *url.URL
 	mu              *sync.RWMutex
 	tombstone       string //timestamp - deleted in 10 minutes
@@ -59,7 +58,7 @@ type User struct {
 	UsernameHash  string
 	PasswordHash  string
 	Subscriptions map[string]string //Topic Names key against pushURL
-	Created       string
+	Created       string            //Created is date user was created
 	mu            *sync.RWMutex
 	tombstone     string //timestamp - deleted in 10 minutes
 	//persistLayer is the data persistance interface

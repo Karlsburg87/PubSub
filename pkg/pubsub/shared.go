@@ -15,6 +15,8 @@ import (
 
 //createNewUser creates a new user from a given
 // unhashed username and password string
+//
+//PersistLayer is not added here and must be updated after create call
 func createNewUser(username, password string) (*User, error) {
 	//hash entries
 	u := sha256.New()

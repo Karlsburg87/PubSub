@@ -28,10 +28,19 @@ func getReady(superUsername, superUserpassword string) *PubSub {
 	go pubsub.metranome()
 	//start persistance layer
 	pubsub.persistLayer, err = NewUnderwriter(pubsub)
+	superUserPing.persistLayer = pubsub.persistLayer
 	if err != nil {
 		log.Fatalln(fmt.Errorf("Error spinning up new Underwriter object: %v", err))
 	}
-	pubsub.persistLayer.Launch()
+
+	if err := pubsub.persistLayer.Launch(); err != nil {
+		log.Panicln(err)
+	}
+
+	//retore existing messages if any in persist locations
+	if err := restore(pubsub, pubsub.persistLayer); err != nil {
+		log.Panicf("Cannot restore from persist area: %v\n", err) //Fundemental so crash if issue
+	}
 
 	return pubsub
 }

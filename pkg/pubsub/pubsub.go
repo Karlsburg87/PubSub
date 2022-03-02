@@ -26,6 +26,8 @@ func (pubsub *PubSub) GetUser(username, password string) (*User, error) {
 	if err != nil {
 		return nil, err
 	}
+	//Add access to persistLayer
+	user.persistLayer = pubsub.persistLayer
 	pubsub.mu.RLock()
 	if rec, ok := pubsub.Users[user.UsernameHash]; ok { //username found so check password...
 		if user.PasswordHash == rec.PasswordHash { //password correct so return User
@@ -79,7 +81,7 @@ func (pubsub *PubSub) CreateTopic(topicName string, user *User) (*Topic, error) 
 	pubsub.mu.RUnlock()
 
 	newTopic := &Topic{
-		Creator:          user,
+		Creator:          user.UUID,
 		Name:             topicName,
 		PointerHead:      0,
 		PointerPositions: make(map[int]Subscribers),
@@ -198,8 +200,8 @@ func (pubsub *PubSub) webhookRoutine(topic *Topic, message Message, subscriber *
 func (pubsub *PubSub) Tombstone(consideredStale, resurrectionOpportunity time.Duration) error {
 	//This function blocks all PubSub execution so should be run conservatively and opportunistically
 	log.Println("Tombstone Procedure KO")
-  pubsub.mu.Lock()
-  defer pubsub.mu.Unlock()
+	pubsub.mu.Lock()
+	defer pubsub.mu.Unlock()
 	//subscription tombstoning
 	if err := pubsub.subscriptionTombstone(consideredStale, resurrectionOpportunity); err != nil {
 		return err
@@ -256,11 +258,11 @@ func (pubsub *PubSub) subscriptionTombstone(consideredStale, resurrectionOpportu
 						//also delete User Subscriptions list
 						delete(pubsub.Users[subscriber.ID].Subscriptions, topic.Name)
 						//delete from persist store
-            pubsub.persistLayer.Switchboard().subscriberDeleter <- PersistSubscriberStruct{
-              MessageID: pointer,
-	            TopicName: topic.Name,
-	            SubscriberID: subscriber.ID,
-            }
+						pubsub.persistLayer.Switchboard().subscriberDeleter <- PersistSubscriberStruct{
+							MessageID:    pointer,
+							TopicName:    topic.Name,
+							SubscriberID: subscriber.ID,
+						}
 					}
 					continue
 				}
@@ -285,7 +287,7 @@ func (pubsub *PubSub) messageTombstone(resurrectionOpportunity time.Duration) er
 			continue
 		}
 		//delete messages from bottom up where subscriber length is 0
-		for lowestPosition := (topic.PointerHead - len(topic.PointerPositions)); len(topic.PointerPositions[lowestPosition]) < 1 && topic.PointerPositions[lowestPosition] !=nil ; lowestPosition += 1 {
+		for lowestPosition := (topic.PointerHead - len(topic.PointerPositions)); len(topic.PointerPositions[lowestPosition]) < 1 && topic.PointerPositions[lowestPosition] != nil; lowestPosition += 1 {
 			//tombstone if no tombstone already
 			if topic.Messages[lowestPosition].tombstone == "" {
 				m := pubsub.Topics[topicName].Messages[lowestPosition]
@@ -301,10 +303,10 @@ func (pubsub *PubSub) messageTombstone(resurrectionOpportunity time.Duration) er
 			if isStale(tombstone, resurrectionOpportunity) {
 				delete(topic.Messages, lowestPosition)
 				//remove from persist store
-        pubsub.persistLayer.Switchboard().messageDeleter <- PersistMessageStruct{          
-	TopicName:topicName,
-	MessageID:lowestPosition,
-        }
+				pubsub.persistLayer.Switchboard().messageDeleter <- PersistMessageStruct{
+					TopicName: topicName,
+					MessageID: lowestPosition,
+				}
 			}
 		}
 	}
@@ -359,7 +361,7 @@ func (pubsub *PubSub) userTombstone(resurrectionOpportunity time.Duration) error
 		if isStale(d, resurrectionOpportunity) {
 			delete(pubsub.Users, usr)
 			//delete from persist store
-    pubsub.persistLayer.Switchboard().userDeleter <- usr
+			pubsub.persistLayer.Switchboard().userDeleter <- usr
 		}
 	}
 	return nil

@@ -3,8 +3,10 @@ package pubsub
 import (
 	"fmt"
 	"os"
+	"path"
 	"strconv"
 	"strings"
+	"sync"
 )
 
 //PersistBase gives the root directory location to which data should be persisted. Set by envar `STORE`
@@ -34,23 +36,23 @@ type PersistCore struct {
 type Persist interface {
 	//Launch starts up goroutines
 	Launch() error
-  //OutputSwitchboard returns a PersistCore object 
-  // within which to send messages to Write... 
-  // and Delete... methods
-  Switchboard() PersistCore
-	//TidyUp is where to put the close down work. Usually 
-  // to close
-	// files or databases. Usually used as `defer 
-  // Persist.TidyUp()`
+	//OutputSwitchboard returns a PersistCore object
+	// within which to send messages to Write...
+	// and Delete... methods
+	Switchboard() PersistCore
+	//TidyUp is where to put the close down work. Usually
+	// to close
+	// files or databases. Usually used as `defer
+	// Persist.TidyUp()`
 	TidyUp() error
-	//WriteUser adds a user to the persistance layer from 
-  // a User chan
+	//WriteUser adds a user to the persistance layer from
+	// a User chan
 	WriteUser() error
-	//WriteSubscriber adds a subscriber to the persistance 
-  // layer from persistSubscriberStruct chan
+	//WriteSubscriber adds a subscriber to the persistance
+	// layer from persistSubscriberStruct chan
 	WriteSubscriber() error
-	//WriteMessage adds a message to the persistance layer 
-  // with from persistMessageStruct
+	//WriteMessage adds a message to the persistance layer
+	// with from persistMessageStruct
 	WriteMessage() error
 	//GetUseret returns a single user by userID string
 	// (Which is also UsernameHash of the user)
@@ -118,7 +120,7 @@ func restore(pubsub *PubSub, persist Persist) error {
 	var ping *User
 	for _, user := range pubsub.Users {
 		ping = user
-		break
+		break //ping should be first and only User at startup
 	}
 	//restore users first
 	uStream, err := persist.StreamUsers()
@@ -130,6 +132,8 @@ func restore(pubsub *PubSub, persist Persist) error {
 		if !ok {
 			return fmt.Errorf("StreamUsers did not return *User")
 		}
+		usr.mu = &sync.RWMutex{}
+		usr.persistLayer = pubsub.persistLayer
 		pubsub.Users[userShell.Key] = usr
 	}
 	//restore messages second (and implicitly Topics)
@@ -140,16 +144,22 @@ func restore(pubsub *PubSub, persist Persist) error {
 			return fmt.Errorf("StreamMessages did not return *Message")
 		}
 		pieces := strings.Split(messageShell.Key, "/")
-		msgID, err := strconv.Atoi(pieces[len(pieces)-1])
+		fileName := pieces[len(pieces)-1]
+		msgID, err := strconv.Atoi(fileName[:len(fileName)-len(path.Ext(fileName))])
 		if err != nil {
 			return err
 		}
+		fmt.Println(pieces)
 		topicName := pieces[len(pieces)-2]
 		//Create Topic if not yet existing
 		if _, ok := pubsub.Topics[topicName]; !ok {
 			pubsub.CreateTopic(topicName, ping) //need userID which is in subscriber.Creator -> bool. So default to `ping' and have this updated when restoring subscriptions.
 		}
 		pubsub.Topics[topicName].Messages[msgID] = *msg
+		//Update topic's' pointerHead
+		if pubsub.Topics[topicName].PointerHead <= (msgID + 1) {
+			pubsub.Topics[topicName].PointerHead = (msgID + 1)
+		}
 	}
 	//restore subscriptions last
 	sStream, err := persist.StreamSubscribers()
@@ -161,6 +171,7 @@ func restore(pubsub *PubSub, persist Persist) error {
 		if !ok {
 			return fmt.Errorf("StreamSubscribers did not return *Subscriber")
 		}
+		sub.mu = &sync.RWMutex{}
 		pieces := strings.Split(subShell.Key, "/")
 		subID := pieces[len(pieces)-1]
 		msgID, err := strconv.Atoi(pieces[len(pieces)-2])
@@ -174,9 +185,9 @@ func restore(pubsub *PubSub, persist Persist) error {
 		}
 		pubsub.Topics[topicName].PointerPositions[msgID][subID] = sub
 
-		//restore as creator of Topic if so
+		//restore as creator of Topic if marked on subscription
 		if sub.Creator {
-			pubsub.Topics[topicName].Creator = sub.User
+			pubsub.Topics[topicName].Creator = sub.ID
 		}
 	}
 

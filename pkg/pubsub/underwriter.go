@@ -23,7 +23,7 @@ type Underwriter struct {
 }
 
 func NewUnderwriter(pubsub *PubSub) (*Underwriter, error) {
-	if err := os.MkdirAll(PersistBase, 0766); err != nil {
+	if err := os.MkdirAll(path.Join(PersistBase, "messages"), 0766); err != nil {
 		return nil, err
 	}
 	db, err := bolt.Open(path.Join(PersistBase, "underwriter.db"), 0766, &bolt.Options{Timeout: 1 * time.Second})
@@ -40,19 +40,20 @@ func NewUnderwriter(pubsub *PubSub) (*Underwriter, error) {
 		return nil
 	})
 	return &Underwriter{
-		db:               db,
-    PersistCore: &PersistCore{
-		pubsub:           pubsub,
-		userWriter:       make(chan User),
-    userDeleter: make(chan string),
-		subscriberWriter: make(chan PersistSubscriberStruct),
-    subscriberDeleter: make(chan PersistSubscriberStruct),
-		messageWriter:    make(chan PersistMessageStruct),
-    messageDeleter: make(chan PersistMessageStruct),
-      },
+		db: db,
+		PersistCore: &PersistCore{
+			pubsub:            pubsub,
+			userWriter:        make(chan User),
+			userDeleter:       make(chan string),
+			subscriberWriter:  make(chan PersistSubscriberStruct),
+			subscriberDeleter: make(chan PersistSubscriberStruct),
+			messageWriter:     make(chan PersistMessageStruct),
+			messageDeleter:    make(chan PersistMessageStruct),
+		},
 	}, nil
 }
 
+//Launch spins up all goroutines required to stream writes and deletes
 func (uw *Underwriter) Launch() error {
 	go func() {
 		if err := uw.WriteUser(); err != nil {
@@ -87,9 +88,10 @@ func (uw *Underwriter) Launch() error {
 	return nil
 }
 
-func(uw *Underwriter)Switchboard()PersistCore{
-  return *uw.PersistCore
+func (uw *Underwriter) Switchboard() PersistCore {
+	return *uw.PersistCore
 }
+
 //TidyUp cleans up database connections before close.
 // Must run after NewUnderwriter call as defer
 // Persist.TidyUp()
@@ -146,7 +148,7 @@ func (uw *Underwriter) WriteSubscriber() error {
 func (uw *Underwriter) WriteMessage() error {
 	for messageStruct := range uw.messageWriter {
 		//store as file in `/store` directory
-		dirStructure := path.Join(PersistBase, fmt.Sprintf("%s/", messageStruct.TopicName))
+		dirStructure := path.Join(PersistBase, "messages", messageStruct.TopicName)
 		loc := path.Join(dirStructure, fmt.Sprintf("/%d.json", messageStruct.Message.ID))
 
 		if err := os.MkdirAll(dirStructure, 0766); err != nil {
@@ -176,7 +178,7 @@ func (uw *Underwriter) GetUser(userID string) (User, error) {
 		encUser := b.Get([]byte(userID))
 		//GOB decode user
 		dec := gob.NewDecoder(bytes.NewReader(encUser))
-		if err := dec.Decode(decUser); err != nil {
+		if err := dec.Decode(&decUser); err != nil {
 			return err
 		}
 		return nil
@@ -197,9 +199,9 @@ func (uw *Underwriter) GetSubscriber(subscriberID string, messageID int, topicNa
 	//get User
 	if err := uw.db.View(func(tx *bolt.Tx) error {
 		b := tx.Bucket([]byte("sub"))
-		encUser := b.Get([]byte(fmt.Sprintf("%s/%d/%s", topicName, messageID, subscriberID)))
+		encSub := b.Get([]byte(fmt.Sprintf("%s/%d/%s", topicName, messageID, subscriberID)))
 		//GOB decode user
-		dec := gob.NewDecoder(bytes.NewReader(encUser))
+		dec := gob.NewDecoder(bytes.NewReader(encSub))
 		if err := dec.Decode(&decSubscriber); err != nil {
 			return err
 		}
@@ -241,22 +243,27 @@ func (uw *Underwriter) StreamSubscribers() (chan Streamer, error) {
 // Messages from the db
 func (uw *Underwriter) StreamMessages() (chan Streamer, error) {
 	streamer := make(chan Streamer)
-	go messageStreamer(PersistBase, streamer)
+	go func() {
+		messageStreamer(path.Join(PersistBase, "messages"), streamer)
+		close(streamer)
+		streamer = nil
+	}()
 
 	return streamer, nil
 }
 
 //DeleteUser accepts UserID which is the userhash string
 func (uw *Underwriter) DeleteUser() error {
-  for usrID:=range uw.userDeleter{if err:= uw.db.Batch(func(tx *bolt.Tx) error {
-		b := tx.Bucket([]byte("user"))
-		err := b.Delete([]byte(usrID))
-		return err
-	});err!=nil{
-  return err
-  }
-}
-return nil
+	for usrID := range uw.userDeleter {
+		if err := uw.db.Batch(func(tx *bolt.Tx) error {
+			b := tx.Bucket([]byte("user"))
+			err := b.Delete([]byte(usrID))
+			return err
+		}); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 //DeleteSubscriber accepts subscriberID (the userID of
@@ -264,35 +271,35 @@ return nil
 //
 //Add messageID as -1 if not available. Func will they cycle through the topic and delete matches to subscriberID
 func (uw *Underwriter) DeleteSubscriber() error {
-  for subsc := range uw.subscriberDeleter{
-	if err:= uw.db.Batch(func(tx *bolt.Tx) error {
-		b := tx.Bucket([]byte("sub"))
-		if subsc.MessageID >= 0 {
-			if err := b.Delete([]byte(fmt.Sprintf("%s/%d/%s", subsc.TopicName, subsc.MessageID, subsc.SubscriberID))); err != nil {
-				return fmt.Errorf("Error issueing Subscriber Delete in BoltDB:%v", err)
-			}
-			return nil
-		}
-		c := b.Cursor()
-
-		//cycle through all messages in topic and delete matching subscriberID
-		prefix := []byte(fmt.Sprintf("%s/", subsc.TopicName))
-		for k, _ := c.Seek(prefix); k != nil && bytes.HasPrefix(k, prefix); k, _ = c.Next() {
-			//check suffix
-			if strings.HasSuffix(string(k), subsc.SubscriberID) {
-				if err := b.Delete(k); err != nil {
-					return fmt.Errorf("Error doing delete of prefix/suffix match in Subscriber Delete in BoltDB :%v", err)
+	for subsc := range uw.subscriberDeleter {
+		if err := uw.db.Batch(func(tx *bolt.Tx) error {
+			b := tx.Bucket([]byte("sub"))
+			if subsc.MessageID >= 0 {
+				if err := b.Delete([]byte(fmt.Sprintf("%s/%d/%s", subsc.TopicName, subsc.MessageID, subsc.SubscriberID))); err != nil {
+					return fmt.Errorf("Error issueing Subscriber Delete in BoltDB:%v", err)
 				}
+				return nil
+			}
+			c := b.Cursor()
+
+			//cycle through all messages in topic and delete matching subscriberID
+			prefix := []byte(fmt.Sprintf("%s/", subsc.TopicName))
+			for k, _ := c.Seek(prefix); k != nil && bytes.HasPrefix(k, prefix); k, _ = c.Next() {
+				//check suffix
+				if strings.HasSuffix(string(k), subsc.SubscriberID) {
+					if err := b.Delete(k); err != nil {
+						return fmt.Errorf("Error doing delete of prefix/suffix match in Subscriber Delete in BoltDB :%v", err)
+					}
+				}
+
 			}
 
+			return nil
+		}); err != nil {
+			return err
 		}
-
-		return nil
-	});err!=nil{
-  return err
-  }
-  }
-return nil
+	}
+	return nil
 }
 
 //DeleteMessage accepts messageID and topicName
@@ -311,7 +318,7 @@ func (uw *Underwriter) DeleteMessage() error {
 func messageStreamer(basePath string, streamer chan Streamer) {
 	files, err := os.ReadDir(basePath)
 	if err != nil { //Better error handling required
-		log.Printf("%v", fmt.Errorf("Error reading directory"))
+		log.Printf("%v", fmt.Errorf("Error reading directory: %v", err))
 		return
 	}
 	for _, file := range files {
@@ -322,28 +329,29 @@ func messageStreamer(basePath string, streamer chan Streamer) {
 		}
 		f, err := os.Open(path.Join(basePath, file.Name()))
 		if err != nil { //Better error handling required
-			log.Printf("%v", fmt.Errorf("Error reading directory"))
+			log.Printf("%v", fmt.Errorf("Error reading directory in messageStreamer: %v", err))
 			return
 		}
 		//pull content
 		content, err := io.ReadAll(f)
 		if err != nil { //Better error handling required
-			log.Printf("%v", fmt.Errorf("Error reading directory"))
+			log.Printf("%v", fmt.Errorf("Error reading directory in messageStreamer: %v", err))
 			return
 		}
 		//unmarshal from JSON
 		m := &Message{}
-		if err := json.Unmarshal(content, &m); err != nil {
-			log.Printf("%v", fmt.Errorf("Error unmarshaling JSON"))
+		fmt.Printf("%+v", string(content))
+		if err := json.Unmarshal(content, m); err != nil {
+			log.Printf("%v", fmt.Errorf("Error unmarshaling JSON in messageStreamer: %v", err))
 			return
 		}
 		//Stream out
 		streamer <- Streamer{
-			Key:  file.Name(),
+			Key:  path.Join(basePath, file.Name()),
 			Unit: m,
 		}
 		if err := f.Close(); err != nil {
-			log.Printf("%v", fmt.Errorf("Error closing file"))
+			log.Printf("%v", fmt.Errorf("Error closing file in messageStreamer: %v", err))
 			return
 		}
 	}
@@ -370,16 +378,26 @@ func (uw Underwriter) streamBucket(streamType PersistUnit) (chan Streamer, error
 			c := b.Cursor()
 			for k, v := c.First(); k != nil; k, v = c.Next() {
 				dec := gob.NewDecoder(bytes.NewReader(v))
-				if err := dec.Decode(&s.Unit); err != nil {
-					return err
+				switch unit := s.Unit.(type) {
+				case *Subscriber:
+					if err := dec.Decode(unit); err != nil {
+						return err
+					}
+				case *User:
+					if err := dec.Decode(unit); err != nil {
+						return err
+					}
 				}
 				s.Key = string(k)
 				streamer <- s
 			}
+
 			return nil
 		}); err != nil {
 			log.Println(err)
 		}
+		close(streamer)
+		streamer = nil
 	}()
 	return streamer, nil
 }

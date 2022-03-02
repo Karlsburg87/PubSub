@@ -23,11 +23,10 @@ func (user *User) Subscribe(topic *Topic, pushURL string) error {
 	//Create Subsriber Object
 	sub := &Subscriber{
 		ID:      user.UUID,
-		User:    user,
 		PushURL: url,
 		mu:      &sync.RWMutex{},
 		backoff: 80 * time.Millisecond,
-		Creator: topic.Creator.UUID == user.UUID,
+		Creator: topic.Creator == user.UUID,
 	}
 
 	//unsubscribe from topic first if already a subscriber.
@@ -94,11 +93,11 @@ func (user *User) Unsubscribe(topic *Topic) error {
 	topic.mu.Unlock()
 
 	//delete from persist layer
-user.persistLayer.Switchboard().subscriberDeleter <- PersistSubscriberStruct{
-  TopicName: topic.Name,
-  MessageID:-1,
-  SubscriberID:user.UUID,
-}
+	user.persistLayer.Switchboard().subscriberDeleter <- PersistSubscriberStruct{
+		TopicName:    topic.Name,
+		MessageID:    -1,
+		SubscriberID: user.UUID,
+	}
 
 	return nil
 }
@@ -106,7 +105,7 @@ user.persistLayer.Switchboard().subscriberDeleter <- PersistSubscriberStruct{
 //WriteToTopic manages the user writing to a topic it is a creator of
 func (user *User) WriteToTopic(topic *Topic, message Message) (Message, error) {
 	//check user is the creator of the topic
-	if user.UUID != topic.Creator.UUID {
+	if user.UUID != topic.Creator {
 		return Message{}, fmt.Errorf("User does not have the authorisation to write to this channel")
 	}
 	topic.mu.Lock()
