@@ -20,10 +20,13 @@ func getReady(superUsername, superUserpassword string) *PubSub {
 	//new core
 	users := Users{superUserPing.UsernameHash: superUserPing}
 	pubsub := &PubSub{
-		Topics: make(Topics),
-		Users:  users,
-		mu:     &sync.RWMutex{},
+		Topics:    make(Topics),
+		Users:     users,
+		mu:        &sync.RWMutex{},
+		sseDistro: SSENewDistro(),
 	}
+	//start server side events goroutine
+	go pubsub.sseDistro.Routine()
 	//start regular task ticks
 	go pubsub.metranome()
 	//start persistance layer

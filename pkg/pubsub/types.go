@@ -13,6 +13,8 @@ type PubSub struct {
 	mu     *sync.RWMutex
 	//persistLayer is the data persistance interface
 	persistLayer Persist
+	//sseDistro is unit that supplies Server Sent Events to the mux frontend
+	sseDistro SSEDistro
 }
 
 //Topic is the setup for topics
@@ -25,6 +27,8 @@ type Topic struct {
 	PointerHead      int                 //latest/highest Messages key/ID.
 	mu               *sync.RWMutex
 	tombstone        string //timestamp - deleted in 10 minutes
+	//sseOut is the channel ALL messages can be sent to to fan out to sse requests
+	sseOut chan SSEResponse
 }
 
 //Topics is a map of topics with key as topic name

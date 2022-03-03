@@ -87,6 +87,7 @@ func (pubsub *PubSub) CreateTopic(topicName string, user *User) (*Topic, error) 
 		PointerPositions: make(map[int]Subscribers),
 		Messages:         make(map[int]Message),
 		mu:               &sync.RWMutex{},
+		sseOut:           pubsub.sseDistro.Intake,
 	}
 	//Add the topic to the public topic list
 	pubsub.mu.Lock()

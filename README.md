@@ -54,18 +54,18 @@ PubSub Benchmarks to follow (*see Roadmap section*)
 
 **Not yet suitable for deployment in production environments**
 
-## Data Persistance *(Roadmap Feature)*
-Pubsub is an in-memory system, however it will persist message data to a file-based KV database and blob stores in future to assist with disaster recovery efforts. See the *Roadmap* section
+## Data Persistance
+Pubsub is an in-memory system, however it persists message data to a file-based KV database and blob stores in future to assist with disaster recovery efforts.
 
-When implemented, messages will be stored in JSON format within a local blob store with file name convention: `{topicName}/{messageID}`
+When implemented, messages are stored in JSON format within a local blob store with file name convention: `{topicName}/{messageID}`
 
-Both subscriber and user lists will be stored in GOB format within a local BoltDB KV store with:
+Both subscriber and user lists are stored in GOB format within a local BoltDB KV store with:
 
  - User keys convention: `user/{userID}`
 
  - Subscriber keys convention: `sub/{topicName}/{messageID}/{subscriberID}`
 
-Data storage will shadow the in memory workflow and will only be called in the event of disaster recovery.
+Data storage shadows the in memory workflow and will only be called in the event of disaster recovery.
 
 All persisted data will be in the directory `/store` when run via the docker container with defaults.This can be persisted from the Docker container using volumes such as using the command ` docker run --volumes-from [...]`. To change the location, set the environment variable `PS_STORE`.
 

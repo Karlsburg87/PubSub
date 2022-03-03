@@ -1,8 +1,10 @@
 package pubsub
 
 import (
-	"fmt"
+	"encoding/json"
+	"log"
 	"net/http"
+	"os"
 	"time"
 )
 
@@ -53,11 +55,11 @@ func CreateMux() (*http.ServeMux, *PubSub) {
 	mux.HandleFunc("/topics/topic/messages/write", func(rw http.ResponseWriter, r *http.Request) {
 		messageWriteHandler(rw, r, pubsub)
 	})
-	mux.HandleFunc("/", func(rw http.ResponseWriter, r *http.Request) {
-		if err := HTTPErrorResponse(fmt.Errorf("Please choose an API endpoint"), http.StatusInternalServerError, rw); err != nil {
-			return
-		}
+	//UI based routes
+	mux.HandleFunc("/sse", func(rw http.ResponseWriter, r *http.Request) {
+		sseHandler(rw, r, pubsub)
 	})
+	mux.HandleFunc("/", homepageHandler)
 
 	return mux, pubsub
 }
@@ -246,4 +248,62 @@ func messageWriteHandler(rw http.ResponseWriter, r *http.Request, pubsub *PubSub
 	}
 	//respond
 	respondMuxHTTP(rw, response)
+}
+
+//sseHandler is a handler for Server Side Events requests
+func sseHandler(rw http.ResponseWriter, r *http.Request, pubsub *PubSub) {
+	//Set SSE and CORS headers
+	rw.Header().Set("Access-Control-Allow-Origin", "*")
+	rw.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+	rw.Header().Set("Content-Type", "text/event-stream")
+	rw.Header().Set("Cache-Control", "no-cache")
+	rw.Header().Set("Connection", "keep-alive")
+	//sign-up to streams
+	clientName := RandomString(6)
+	log.Printf("checking clientName in sseHandler mux: %s\n", clientName) //for debug
+	receiver := make(chan SSEResponse)
+	pubsub.sseDistro.Add <- SSEAddRequester{
+		ID:       clientName,
+		Receiver: receiver,
+	}
+	//set-up json encoder
+	enc := json.NewEncoder(rw)
+	//get topic stream filters - expected under topic url query as seperate args under the `topic` key
+	filterIn := make(map[string]bool)
+	for _, term := range r.URL.Query()["topic"] {
+		filterIn[term] = true
+	}
+	//ensure this doesn't block on client closing the connection
+	defer func() {
+		pubsub.sseDistro.Cancel <- clientName
+	}()
+
+	//Run the SSE loop
+	for item := range receiver {
+		//Figure out which topic stream was requested
+		if !filterIn[item.TopicName] {
+			continue
+		}
+		//Stream data to writer
+		if err := enc.Encode(item); err != nil {
+			if err := HTTPErrorResponse(err, http.StatusInternalServerError, rw); err != nil {
+				return
+			}
+		}
+	}
+
+	//Flush remaining
+	if f, ok := rw.(http.Flusher); ok {
+		f.Flush()
+	}
+}
+
+//homepageHandler outputs the homepage webapp
+func homepageHandler(rw http.ResponseWriter, r *http.Request) {
+	file, err := os.Open("webapp/app.html")
+	if err := HTTPErrorResponse(err, http.StatusInternalServerError, rw); err != nil {
+		return
+	}
+	defer file.Close()
+	http.ServeContent(rw, r, "index.html", time.Time{}, file)
 }

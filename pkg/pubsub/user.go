@@ -136,6 +136,14 @@ func (user *User) WriteToTopic(topic *Topic, message Message) (Message, error) {
 		TopicName: topic.Name,
 	}
 
+	//Write to SSE distro box
+	sseMsg := SSEResponse{
+		Message:   message,
+		TopicName: topic.Name,
+	}
+	fmt.Println("May hang here in user.WriteToTopic. CHECK-debug")
+	topic.sseOut <- sseMsg //check if this hangs
+
 	return message, nil
 }
 

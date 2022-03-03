@@ -6,12 +6,17 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"math/rand"
 	"net/http"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
 )
+
+func init() {
+	rand.Seed(time.Now().UnixNano()) //for random string function
+}
 
 //createNewUser creates a new user from a given
 // unhashed username and password string
@@ -162,4 +167,19 @@ func respondMuxHTTP(rw http.ResponseWriter, res Responder) {
 //Intended use is for tombstoning activity
 func isStale(timeToCheck time.Time, consideredStale time.Duration) bool {
 	return timeToCheck.Add(consideredStale).Before(time.Now())
+}
+
+//Random String generates a random string of n length
+//
+//https://stackoverflow.com/questions/22892120/how-to-generate-a-random-string-of-a-fixed-length-in-go
+
+//As letterBytes is a constant len(letterBytes) is a constant leading to a performance boost of RandomString
+const letterBytes = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
+
+func RandomString(n int) string {
+	b := make([]byte, n)
+	for i := range b {
+		b[i] = letterBytes[rand.Int63()%int64(len(letterBytes))]
+	}
+	return string(b)
 }
