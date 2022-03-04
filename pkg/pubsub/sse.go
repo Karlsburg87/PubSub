@@ -1,5 +1,11 @@
 package pubsub
 
+import (
+	"encoding/json"
+	"fmt"
+	"log"
+)
+
 //SSEDistro is the object that fans out Messages to SSE requesting clients
 type SSEDistro struct {
 	//Intake is the incoming message chan that needs to be fanned out to the requesters
@@ -19,6 +25,16 @@ type SSEAddRequester struct {
 type SSEResponse struct {
 	TopicName string  `json:"topic_name,omitempty"`
 	Message   Message `json:"message"`
+}
+
+//String implements stringer to allow for proper formatting for SSE
+func (sse SSEResponse) String() string {
+	marsh, err := json.Marshal(sse)
+	if err != nil {
+		log.Panicln(err)
+	}
+	//set retry to every 2 seconds as standard
+	return fmt.Sprintf("retry: 2000\ndata: %s\n\n", string(marsh))
 }
 
 //SSENewDistro creates a new SSEDistro

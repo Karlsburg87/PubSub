@@ -16,6 +16,16 @@
   <link rel="icon" href="/icon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="icon.png">
 
+<!--Materialize CSS framework-->  
+    <!-- Icons -->
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+    <!-- Compiled and minified CSS -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/css/materialize.min.css">
+    <!-- Compiled and minified JavaScript -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/js/materialize.min.js"></script>
+            
+
+  
   <link rel="stylesheet" href="app.css">
 
   <link rel="manifest" href="site.webmanifest">
@@ -24,10 +34,121 @@
 </head>
 
 <body>
+  <!-- Navbar -->
+    <nav>
+    <div class="nav-wrapper">
+  <div  class="container">
+      <a href="#!" class="brand-logo"><i class="material-icons">call_split</i>PubSub</a>
+    <a href="#" data-target="mobile-slideout" class="sidenav-trigger"><i class="material-icons">menu</i></a>
+      <ul class="right hide-on-med-and-down">
+        <li><a href="https://github.com/CDennis-CR/PubSub"><i class="material-icons left">code</i>Join us on Github</a></li>
+      </ul>
+    </div>
+  </div>
+  </nav>
+<!-- mobile slide out nav -->
+  <ul class="sidenav" id="mobile-slideout">
+    <li>
+      <div class="container">
+        <b>More on the project</b>
+    </div>
+    </li>
+  </div>
+        <li><a href="https://github.com/CDennis-CR/PubSub"><i class="material-icons left">code</i>Join us on Github</a></li>
+  </ul>
   
-  <!-- Add your site or application content here -->
-  <p>Hello world! Welcome to PubSub</p>
+  <section class="section">    
+  <div  class="container">
+    <div class="row">
+      <div class="col s12">  
+  <h1 class=""><b>Hi!</b> <br />Welcome to <b>PubSub</b>'s demo UI</h1>
+        <p class="flow-text">PubSub is a small publish and subscribe application built in Go. It is designed for small applications and early development stage projects.</p>
+        <p class="flow-text">On this page you will find an example of how PubSub can be used to develop publically accessible webpages directly from your PubSub streams</p>
+      </div>
+    </div>
+  </div>
+</section>
+   <div class="divider"></div>
+  <section class="section">    
+  <div  class="container">
+    <div class="row">
+      <div class="col s12">
+        <h2>SSE stream demo</h2>
+      </div>
+    </div>
+    <div class="row">
+      <!-- Sidebar with topic options-->
+      <div class="col s12 m4 l4">
+        <p><b>Available topics</b></p>
+        <p>Toggle the options to see the output streams to the right</p>
 
+        <div id="topic-list-area"><!-- Landing area for topics -->
+        </div><!-- Landing area for topics end -->
+        
+      </div>
+
+      
+      <div id="stream-out" class="col s12 m8 l8"> 
+        
+        <!-- List of selected topics -->        
+  <div class="row">
+    <div class="col s12 m12 l12">
+        <p><b>Selected</b></p>   
+      
+      <div class="container" id="selected-topics-land"><!--selected topics landing area -->   </div><!--selected topics landing area end -->
+      
+    </div>
+  </div>
+        
+   <div class="divider"></div>
+        
+        <!-- Loading holder -->
+  <div class="row">
+    <div class="col s12 m12 l12">
+      <div class="progress hide" id=doingStuff>
+        <div class="indeterminate"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- landing zone for stream data-->
+  <div class="row">
+    <div class="col s12 m12 l12" id="stream-dump">
+      
+  <!-- stream output template-->
+  <div class="row">
+    <div class="col s12 m12 l12">
+      <div class="card horizontal">        
+        <div class="card-content"> 
+          <p><span class="card-title">Message Title [Topic Name + MsgID]</span></p>
+          <p class="">Here are the contents of the message which can be very long and somewhat structured in a way that makes text flow look odd. I will say that again as if to prove a point that really requires the upmost emphasis to be articulated with full force.</p>
+        </div>
+        <div class="card-action">
+          <p class=""><i class="tiny material-icons">schema</i>A sizable topic name</p>
+          <span class="new badge">MsgID</span>
+        </div>
+      </div>
+    </div>
+  </div>
+  <!-- stream output template end --> 
+    </div>
+  </div> <!-- landing zone for stream data end -->
+      
+      </div>
+    </div>
+  </div>
+  </section>
+        <footer class="page-footer">
+          <div 
+  <div  class="container">
+          <div class="footer-copyright">
+            <div class="container">
+            © 2022 Copyright PubSub Community
+            </div>
+          </div>
+  </div>
+        </footer>
+  
 </body>
 
 </html>

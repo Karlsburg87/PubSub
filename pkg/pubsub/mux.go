@@ -1,7 +1,7 @@
 package pubsub
 
 import (
-	"encoding/json"
+	"fmt"
 	"log"
 	"net/http"
 	"os"
@@ -260,14 +260,11 @@ func sseHandler(rw http.ResponseWriter, r *http.Request, pubsub *PubSub) {
 	rw.Header().Set("Connection", "keep-alive")
 	//sign-up to streams
 	clientName := RandomString(6)
-	log.Printf("checking clientName in sseHandler mux: %s\n", clientName) //for debug
 	receiver := make(chan SSEResponse)
 	pubsub.sseDistro.Add <- SSEAddRequester{
 		ID:       clientName,
 		Receiver: receiver,
 	}
-	//set-up json encoder
-	enc := json.NewEncoder(rw)
 	//get topic stream filters - expected under topic url query as seperate args under the `topic` key
 	filterIn := make(map[string]bool)
 	for _, term := range r.URL.Query()["topic"] {
@@ -277,29 +274,48 @@ func sseHandler(rw http.ResponseWriter, r *http.Request, pubsub *PubSub) {
 	defer func() {
 		pubsub.sseDistro.Cancel <- clientName
 	}()
-
+	//Flusher
+	var flusher http.Flusher
+	if flush, ok := rw.(http.Flusher); ok {
+		flusher = flush
+	} else {
+		log.Panicln("No flusher on rw in SSE")
+	}
 	//Run the SSE loop
-	for item := range receiver {
-		//Figure out which topic stream was requested
-		if !filterIn[item.TopicName] {
-			continue
-		}
-		//Stream data to writer
-		if err := enc.Encode(item); err != nil {
-			if err := HTTPErrorResponse(err, http.StatusInternalServerError, rw); err != nil {
+	for {
+		select {
+		case <-r.Context().Done():
+			log.Printf("Connection cancelled by client: %s\n", clientName)
+			return
+		case item := <-receiver:
+			//Figure out which topic stream was requested
+			if !filterIn[item.TopicName] {
+				continue
+			}
+			//item implements stringer with data: and \n\n wrapped
+			if _, err := fmt.Fprint(rw, item); err != nil {
+				log.Println(err)
 				return
 			}
+			//flush remaining data
+			flusher.Flush()
 		}
-	}
-
-	//Flush remaining
-	if f, ok := rw.(http.Flusher); ok {
-		f.Flush()
 	}
 }
 
 //homepageHandler outputs the homepage webapp
 func homepageHandler(rw http.ResponseWriter, r *http.Request) {
+	//Check if request is for supporting files- .js and .css
+	switch r.URL.Path {
+	case "/app.js":
+		http.ServeFile(rw, r, "webapp/app.js")
+		return
+	case "/app.css":
+		http.ServeFile(rw, r, "webapp/app.css")
+		return
+	}
+
+	//serve homepage via serveContent to allow for templating
 	file, err := os.Open("webapp/app.html")
 	if err := HTTPErrorResponse(err, http.StatusInternalServerError, rw); err != nil {
 		return
