@@ -86,7 +86,7 @@ function StartSSE(){
 //--------------------------------------------------HTML DOM ADDERS
 
 //Build all the topics buttons from a returned list of topics from ther server and add to page
-function AddTopicItems(ListKeysResp={topics:["topic One","topic Two","topic Three"]}){
+function AddTopicItems(ListKeysResp){
   const landingArea = document.getElementById("topic-list-area");
   //clear existing buttons
   clearChildren(landingArea);
@@ -222,7 +222,8 @@ function BuildStreamItem(SSEResponse={topic_name:"test tn",message:{data:"test m
   const messageTxt = document.createTextNode(SSEResponse.message.data);
   const cardAction = document.createElement("div");
   cardAction.classList.add("card-action");
-  const topicName = document.createElement("p");
+  const topicName = document.createElement("span");
+  topicName.classList.add("badge")
   const iconTopic = document.createElement("i");
   iconTopic.classList.add("tiny","material-icons");
   const iconSelect = document.createTextNode("schema");
@@ -238,7 +239,7 @@ function BuildStreamItem(SSEResponse={topic_name:"test tn",message:{data:"test m
 
   
   badgeMsgID.appendChild(badgeTxt);
-  badge.appendChild(badgeCreatedTxt)
+  badge.appendChild(badgeCreatedTxt);
   iconTopic.appendChild(iconSelect);
   topicName.appendChild(iconTopic);
   topicName.appendChild(topicNameTxt);

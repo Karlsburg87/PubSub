@@ -175,9 +175,10 @@ type IncomingReq struct{
 - [x] Include a Dockerfile/Containerfile for easy deployment
 - [ ] Inlude a Cloud Build YAML file for easy CICD to GCP Cloud Compute Engine
 - [x] Add a Bash script for easy local deploy for testing using Buildah and Podman
-- [ ] Server Sent Events implementation for websites wanting to consume streams to display directly in the client UI
-- [ ] Implement front end web app for onboarding new users
+- [x] Server Sent Events implementation for websites wanting to consume streams to display directly in the client UI
+- [x] Implement front end web app for onboarding new users
 - [ ] Benchmarking
 - [ ] Unit tests
 - [ ] Inform Push subscribers when their subscriptions have been garbage collected as this may be due to low frequency publishing rates of the Topic rather than inactive subscribers.
 - [ ] Add ability to config the tombstoner deadlines.
+- [ ] Fix User already exists bug that effeects users after restore from persistance layer 
