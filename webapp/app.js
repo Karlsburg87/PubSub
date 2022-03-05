@@ -14,10 +14,10 @@ document.addEventListener('DOMContentLoaded', function() {
 
 //-------------------------------------------------------INITS
 
-//display topics as buttons on the left pane
-GetTopics().then((topicList)=>{AddTopicItems(topicList)}).catch(err=>{console.error(err)})
+//Fetch and show topics from load
+OutputTopics();
 
-//------------------------------------------HANDLER FUNCTIONS
+//=-----------------------------------------HANDLER FUNCTIONS
 
 //adds event listeners to a sse function
 function react(evt){
@@ -33,7 +33,14 @@ function react(evt){
 }
 
 //--------------------------------------------HELPER FUNCTIONS
+//display topics as buttons on the left pane
+function OutputTopics(){
+  GetTopics()
+    .then((topicList)=>{AddTopicItems(topicList)})
+    .catch(err=>  {console.error(err)})
+}
 
+//Used by outputTopics to fetch and display topics lists to page
 async function GetTopics(){
   let response = await fetch(pubsubURL+"/topics/fetch?username=PubSubUI&password=public", {
     method: 'GET', // *GET, POST, PUT, DELETE, etc.
@@ -220,20 +227,24 @@ function BuildStreamItem(SSEResponse={topic_name:"test tn",message:{data:"test m
   iconTopic.classList.add("tiny","material-icons");
   const iconSelect = document.createTextNode("schema");
   const topicNameTxt = document.createTextNode(SSEResponse.topic_name);
-  const badge = document.createElement("span");
-  badge.classList.add("badge");
-  const badgeTxt = document.createTextNode("MsgID: " + SSEResponse.message.id);
+  const badge = document.createElement("blockquote");
+  //badge.classList.add("badge");
+  const badgeMsgID = document.createElement("span");
+  badgeMsgID.classList.add("badge","new");
+  badgeMsgID.setAttribute("data-badge-caption","#")
+  const badgeTxt = document.createTextNode(SSEResponse.message.id);
   const badgeCreatedTxt = document.createTextNode(
     "Created: " + new Date(SSEResponse.message.created).toISOString());
 
   
-  badge.appendChild(badgeTxt);
+  badgeMsgID.appendChild(badgeTxt);
   badge.appendChild(badgeCreatedTxt)
   iconTopic.appendChild(iconSelect);
   topicName.appendChild(iconTopic);
   topicName.appendChild(topicNameTxt);
   cardAction.appendChild(topicName);
   cardAction.appendChild(badge);
+  cardAction.appendChild(badgeMsgID);
   message.appendChild(messageTxt);
   titleSpan.appendChild(titleTxt);
   title.appendChild(titleSpan);

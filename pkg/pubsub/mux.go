@@ -251,6 +251,8 @@ func messageWriteHandler(rw http.ResponseWriter, r *http.Request, pubsub *PubSub
 }
 
 //sseHandler is a handler for Server Side Events requests
+//
+//Useful design pattern for SSE:https://www.smashingmagazine.com/2018/02/sse-websockets-data-flow-http2/#:~:text=Server%2DSent%20Events%20are%20real,communication%20method%20from%20the%20server.
 func sseHandler(rw http.ResponseWriter, r *http.Request, pubsub *PubSub) {
 	//Set SSE and CORS headers
 	rw.Header().Set("Access-Control-Allow-Origin", "*")
@@ -281,16 +283,36 @@ func sseHandler(rw http.ResponseWriter, r *http.Request, pubsub *PubSub) {
 	} else {
 		log.Panicln("No flusher on rw in SSE")
 	}
+	//Keep alive pinger
+	ticker := time.NewTicker(30 * time.Second)
+	defer ticker.Stop()
+	//id counter
+	idCount := 0
 	//Run the SSE loop
 	for {
 		select {
+
 		case <-r.Context().Done():
 			log.Printf("Connection cancelled by client: %s\n", clientName)
 			return
+
+		case <-ticker.C:
+			if _, err := fmt.Fprint(rw, ": keep alive\n\n"); err != nil {
+				log.Println(err)
+				return
+			}
+			flusher.Flush()
+
 		case item := <-receiver:
 			//Figure out which topic stream was requested
 			if !filterIn[item.TopicName] {
 				continue
+			}
+			//increment the id count
+			idCount += 1
+			if _, err := fmt.Fprintf(rw, "id: %d\n", idCount); err != nil {
+				log.Println(err)
+				return
 			}
 			//item implements stringer with data: and \n\n wrapped
 			if _, err := fmt.Fprint(rw, item); err != nil {
@@ -299,6 +321,7 @@ func sseHandler(rw http.ResponseWriter, r *http.Request, pubsub *PubSub) {
 			}
 			//flush remaining data
 			flusher.Flush()
+
 		}
 	}
 }
