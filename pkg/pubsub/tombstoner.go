@@ -2,6 +2,11 @@ package pubsub
 
 import "time"
 
+/**
+* The execution of the tombstone interface occures at regular intevals executed in
+* pubsub.metranome. The full logic of running the deletions is in the pubsub.go file.
+**/
+
 //----------------tombstone interface
 
 //tombstoner standardises the method of deleting User,

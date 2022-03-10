@@ -7,7 +7,7 @@ type ListKeysResp struct {
 	Error       string   `json:"error,omitempty"`
 	Topics      []string `json:"topics,omitempty"`
 	Users       []string `json:"users,omitempty"` //not in use yet
-	Subscribers []string `json:"users,omitempty"` //not in use yet
+	Subscribers []string `json:"subs,omitempty"`  //not in use yet
 	Count       int      `json:"count"`
 }
 

@@ -185,8 +185,8 @@ func restore(pubsub *PubSub, persist Persist) error {
 		}
 		pubsub.Topics[topicName].PointerPositions[msgID][subID] = sub
 
-		//restore as creator of Topic if marked on subscription
-		if sub.Creator {
+		//restore as creator of Topic if marked on subscription and not the default ping
+		if sub.Creator && sub.ID != ping.UUID {
 			pubsub.Topics[topicName].Creator = sub.ID
 		}
 	}

@@ -5,13 +5,14 @@ import (
 	"encoding/gob"
 	"encoding/json"
 	"fmt"
-	bolt "go.etcd.io/bbolt"
 	"io"
 	"log"
 	"os"
 	"path"
 	"strings"
 	"time"
+
+	bolt "go.etcd.io/bbolt"
 )
 
 //Underwriter is the default implementation of Persist
@@ -340,7 +341,6 @@ func messageStreamer(basePath string, streamer chan Streamer) {
 		}
 		//unmarshal from JSON
 		m := &Message{}
-		fmt.Printf("%+v", string(content))
 		if err := json.Unmarshal(content, m); err != nil {
 			log.Printf("%v", fmt.Errorf("Error unmarshaling JSON in messageStreamer: %v", err))
 			return
@@ -372,21 +372,25 @@ func (uw Underwriter) streamBucket(streamType PersistUnit) (chan Streamer, error
 	default:
 		return nil, fmt.Errorf("streamType must be either PersistUser or PersistSubscriber")
 	}
-	go func() {
+	go func(bucketName string) {
 		if err := uw.db.View(func(tx *bolt.Tx) error {
 			b := tx.Bucket([]byte(bucketName))
 			c := b.Cursor()
 			for k, v := c.First(); k != nil; k, v = c.Next() {
 				dec := gob.NewDecoder(bytes.NewReader(v))
-				switch unit := s.Unit.(type) {
+				switch s.Unit.(type) {
 				case *Subscriber:
-					if err := dec.Decode(unit); err != nil {
+					subscr := &Subscriber{}
+					if err := dec.Decode(subscr); err != nil {
 						return err
 					}
+					s.Unit = subscr
 				case *User:
-					if err := dec.Decode(unit); err != nil {
+					usr := &User{}
+					if err := dec.Decode(usr); err != nil {
 						return err
 					}
+					s.Unit = usr
 				}
 				s.Key = string(k)
 				streamer <- s
@@ -398,6 +402,6 @@ func (uw Underwriter) streamBucket(streamType PersistUnit) (chan Streamer, error
 		}
 		close(streamer)
 		streamer = nil
-	}()
+	}(bucketName)
 	return streamer, nil
 }

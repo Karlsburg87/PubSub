@@ -1,7 +1,6 @@
 package pubsub
 
 import (
-	"net/url"
 	"sync"
 	"time"
 )
@@ -36,13 +35,14 @@ type Topics map[string]*Topic
 
 //Subscriber is the setup of a subscriber to a topic
 type Subscriber struct {
-	ID              string //User.UUID
-	PushURL         *url.URL
+	ID              string //ID is the User.UUID
+	UsernameHash    string //UsernameHash is the User.UsernameHash to help access the user in Subscription based functions
+	PushURL         string //PushURL is the webhook URL to which to push messages
 	mu              *sync.RWMutex
-	tombstone       string //timestamp - deleted in 10 minutes
-	lastpushAttempt time.Time
-	backoff         time.Duration //to allow for exponential backoff
-	Creator         bool          //whether or not the subscriber is the creator. Used for `restore`
+	tombstone       string        //tombstone is a timestamp - deleted in 10 minutes
+	lastpushAttempt time.Time     //lastpushAttempt is the last attempt to push the message via webhook
+	backoff         time.Duration //backoff duration to allow for exponential backoff
+	Creator         bool          //Creator is whether or not the subscriber is the creator. Used for `restore`
 }
 
 //Subscribers is a map of subscribers

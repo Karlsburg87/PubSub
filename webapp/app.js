@@ -1,6 +1,6 @@
 //----------------------------------------------------GLOBALS
 //Base URL for the SSE streaming service
-const pubsubURL = "https://"+window.location.hostname;
+const pubsubURL = window.location.protocol+"//"+window.location.host;
 //List of topics use has selected to receive stream messages from
 let streamTopics = new Map();
 //The SSE connection
