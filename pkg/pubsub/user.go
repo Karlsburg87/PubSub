@@ -2,7 +2,6 @@ package pubsub
 
 import (
 	"fmt"
-	"net/url"
 	"sync"
 	"time"
 )
@@ -12,21 +11,14 @@ import (
 // using the topic ID.
 func (user *User) Subscribe(topic *Topic, pushURL string) error {
 	//check pushURL is valid
-	var url *url.URL
-	var err error
-	if pushURL != "" {
-		url, err = url.Parse(pushURL)
-		if err != nil {
-			return fmt.Errorf("push URL not valid: %v", err)
-		}
-	}
 	//Create Subsriber Object
 	sub := &Subscriber{
-		ID:      user.UUID,
-		PushURL: url,
-		mu:      &sync.RWMutex{},
-		backoff: 80 * time.Millisecond,
-		Creator: topic.Creator == user.UUID,
+		ID:           user.UUID,
+		UsernameHash: user.UsernameHash,
+		PushURL:      pushURL,
+		mu:           &sync.RWMutex{},
+		backoff:      80 * time.Millisecond,
+		Creator:      topic.Creator == user.UUID,
 	}
 
 	//unsubscribe from topic first if already a subscriber.

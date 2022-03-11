@@ -5,13 +5,14 @@ import (
 	"encoding/gob"
 	"encoding/json"
 	"fmt"
-	bolt "go.etcd.io/bbolt"
 	"io"
 	"log"
 	"os"
 	"path"
 	"strings"
 	"time"
+
+	bolt "go.etcd.io/bbolt"
 )
 
 //Underwriter is the default implementation of Persist
@@ -22,6 +23,7 @@ type Underwriter struct {
 	db *bolt.DB
 }
 
+//NewUnderwriter creates a new Underwriter instance that implements Persist
 func NewUnderwriter(pubsub *PubSub) (*Underwriter, error) {
 	if err := os.MkdirAll(path.Join(PersistBase, "messages"), 0766); err != nil {
 		return nil, err
@@ -88,6 +90,8 @@ func (uw *Underwriter) Launch() error {
 	return nil
 }
 
+//Switchboard returns the PersistCore field of the underlying Underwriter object
+// to make access to channels to goroutines simpler
 func (uw *Underwriter) Switchboard() PersistCore {
 	return *uw.PersistCore
 }
@@ -100,7 +104,7 @@ func (uw *Underwriter) TidyUp() error {
 	return nil
 }
 
-//WriteUser adds a user to the persistance layer
+//WriteUser adds a user to the persistence layer
 func (uw *Underwriter) WriteUser() error {
 	for user := range uw.userWriter {
 		//GOB encode user
@@ -121,7 +125,7 @@ func (uw *Underwriter) WriteUser() error {
 	return nil
 }
 
-//WriteSubscriber adds a subscriber to the persistance layer
+//WriteSubscriber adds a subscriber to the persistence layer
 func (uw *Underwriter) WriteSubscriber() error {
 	for subscriberStruct := range uw.subscriberWriter {
 		//GOB encode user
@@ -144,7 +148,7 @@ func (uw *Underwriter) WriteSubscriber() error {
 	return nil
 }
 
-//WriteMessage adds a message to the persistance layer
+//WriteMessage adds a message to the persistence layer
 func (uw *Underwriter) WriteMessage() error {
 	for messageStruct := range uw.messageWriter {
 		//store as file in `/store` directory
@@ -276,7 +280,7 @@ func (uw *Underwriter) DeleteSubscriber() error {
 			b := tx.Bucket([]byte("sub"))
 			if subsc.MessageID >= 0 {
 				if err := b.Delete([]byte(fmt.Sprintf("%s/%d/%s", subsc.TopicName, subsc.MessageID, subsc.SubscriberID))); err != nil {
-					return fmt.Errorf("Error issueing Subscriber Delete in BoltDB:%v", err)
+					return fmt.Errorf("Error issuing Subscriber Delete in BoltDB:%v", err)
 				}
 				return nil
 			}
@@ -305,7 +309,7 @@ func (uw *Underwriter) DeleteSubscriber() error {
 //DeleteMessage accepts messageID and topicName
 func (uw *Underwriter) DeleteMessage() error {
 	for msg := range uw.messageDeleter {
-		if err := os.Remove(path.Join(PersistBase, fmt.Sprintf("%s/%d.json", msg.TopicName, msg.MessageID))); err != nil {
+		if err := os.Remove(path.Join(PersistBase, fmt.Sprintf("messages/%s/%d.json", msg.TopicName, msg.MessageID))); err != nil {
 			return err
 		}
 	}
@@ -340,7 +344,6 @@ func messageStreamer(basePath string, streamer chan Streamer) {
 		}
 		//unmarshal from JSON
 		m := &Message{}
-		fmt.Printf("%+v", string(content))
 		if err := json.Unmarshal(content, m); err != nil {
 			log.Printf("%v", fmt.Errorf("Error unmarshaling JSON in messageStreamer: %v", err))
 			return
@@ -372,21 +375,25 @@ func (uw Underwriter) streamBucket(streamType PersistUnit) (chan Streamer, error
 	default:
 		return nil, fmt.Errorf("streamType must be either PersistUser or PersistSubscriber")
 	}
-	go func() {
+	go func(bucketName string) {
 		if err := uw.db.View(func(tx *bolt.Tx) error {
 			b := tx.Bucket([]byte(bucketName))
 			c := b.Cursor()
 			for k, v := c.First(); k != nil; k, v = c.Next() {
 				dec := gob.NewDecoder(bytes.NewReader(v))
-				switch unit := s.Unit.(type) {
+				switch s.Unit.(type) {
 				case *Subscriber:
-					if err := dec.Decode(unit); err != nil {
+					subscr := &Subscriber{}
+					if err := dec.Decode(subscr); err != nil {
 						return err
 					}
+					s.Unit = subscr
 				case *User:
-					if err := dec.Decode(unit); err != nil {
+					usr := &User{}
+					if err := dec.Decode(usr); err != nil {
 						return err
 					}
+					s.Unit = usr
 				}
 				s.Key = string(k)
 				streamer <- s
@@ -398,6 +405,6 @@ func (uw Underwriter) streamBucket(streamType PersistUnit) (chan Streamer, error
 		}
 		close(streamer)
 		streamer = nil
-	}()
+	}(bucketName)
 	return streamer, nil
 }

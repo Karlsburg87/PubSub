@@ -1,19 +1,39 @@
 .ps-marginb{
-  margin-bottom: 6px
+  margin-bottom: 6px;
 }
 
 .ps-marginl{
-  margin-left: 6px
+  margin-left: 6px;
 }
 
 .ps-marginr{
-  margin-right: 6px
+  margin-right: 6px;
 }
 
 .ps-margint{
-  margin-top: 6px
+  margin-top: 6px;
 }
 
 .ps-margin{
-  margin: 6px
+  margin: 6px;
+}
+
+.ps-paddingb{
+  padding-bottom: 6px;
+}
+
+.ps-paddingl{
+  padding-left: 6px;
+}
+
+.ps-paddingr{
+  padding-right: 6px;
+}
+
+.ps-paddingt{
+  padding-top: 6px;
+}
+
+.ps-padding{
+  padding: 6px !important;
 }

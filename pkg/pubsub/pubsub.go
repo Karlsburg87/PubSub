@@ -9,6 +9,7 @@ import (
 	"time"
 )
 
+//Close is the tidy-up script that should be used as a defer after calling getReady function
 func (pubsub *PubSub) Close() error {
 	if err := pubsub.persistLayer.TidyUp(); err != nil {
 		return err
@@ -131,7 +132,7 @@ func (pubsub *PubSub) PushWebhooks() error {
 //webhookRoutine is the goroutine does the push via http.POST with built in exponential backoff from the default push cycle. Intended for use in PushWebhooks
 func (pubsub *PubSub) webhookRoutine(topic *Topic, message Message, subscriber *Subscriber, wg *sync.WaitGroup) {
 	defer wg.Done()
-	if subscriber.PushURL != nil {
+	if subscriber.PushURL != "" {
 		//exit it still need to backoff from last send
 		if !subscriber.lastpushAttempt.IsZero() && subscriber.lastpushAttempt.Add(subscriber.backoff).After(time.Now()) {
 			return
@@ -146,7 +147,7 @@ func (pubsub *PubSub) webhookRoutine(topic *Topic, message Message, subscriber *
 			log.Printf("Error converting to JSON from webhookRoutine goroutine: %v", err)
 			return
 		} //?echo err and continue?
-		resp, err := http.Post(subscriber.PushURL.String(), "application/json", bytes.NewReader(parcel))
+		resp, err := http.Post(subscriber.PushURL, "application/json", bytes.NewReader(parcel))
 		if err != nil || (resp.StatusCode != 200 && resp.StatusCode != 201) {
 			//debug logging
 			log.Println(fmt.Errorf("Could not deliver msg: error: %v (StatusCode: %d)\nSubscriber: %s, [Message: %+v]", err, resp.StatusCode, subscriber.ID, msgParcel))
@@ -257,7 +258,11 @@ func (pubsub *PubSub) subscriptionTombstone(consideredStale, resurrectionOpportu
 						//delete subscription
 						delete(topic.PointerPositions[pointer], subscriber.ID)
 						//also delete User Subscriptions list
-						delete(pubsub.Users[subscriber.ID].Subscriptions, topic.Name)
+						if _, ok := pubsub.Users[subscriber.UsernameHash]; ok {
+							delete(pubsub.Users[subscriber.UsernameHash].Subscriptions, topic.Name) //need User.UsernameHash here instead of User.UUID
+						} else {
+							log.Printf("Should be able to find user %s to delete topic.Name from Subscriptions but can not.", subscriber.UsernameHash)
+						}
 						//delete from persist store
 						pubsub.persistLayer.Switchboard().subscriberDeleter <- PersistSubscriberStruct{
 							MessageID:    pointer,

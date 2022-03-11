@@ -267,7 +267,7 @@ func sseHandler(rw http.ResponseWriter, r *http.Request, pubsub *PubSub) {
 		ID:       clientName,
 		Receiver: receiver,
 	}
-	//get topic stream filters - expected under topic url query as seperate args under the `topic` key
+	//get topic stream filters - expected under topic url query as separate args under the `topic` key
 	filterIn := make(map[string]bool)
 	for _, term := range r.URL.Query()["topic"] {
 		filterIn[term] = true

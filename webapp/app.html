@@ -16,16 +16,18 @@
   <link rel="icon" href="/icon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="icon.png">
 
-<!--Materialize CSS framework-->  
-    <!-- Icons -->
-    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
-    <!-- Compiled and minified CSS -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/css/materialize.min.css">
-    <!-- Compiled and minified JavaScript -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/js/materialize.min.js"></script>
-            
+  <!--Materialize CSS framework: https://materializecss.github.io/materialize/getting-started.html-->
+  <!-- Icons -->
+  <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+  <!-- Compiled and minified CSS -->
+  <link rel="stylesheet"
+    href="https://cdn.jsdelivr.net/npm/@materializecss/materialize@1.1.0-alpha/dist/css/materialize.min.css">
+  <!-- Compiled and minified JavaScript -->
+  <script
+    src="https://cdn.jsdelivr.net/npm/@materializecss/materialize@1.1.0-alpha/dist/js/materialize.min.js"></script>
 
-  
+
+
   <link rel="stylesheet" href="app.css">
 
   <link rel="manifest" href="site.webmanifest">
@@ -35,108 +37,220 @@
 
 <body>
   <!-- Navbar -->
-    <nav>
+  <nav>
     <div class="nav-wrapper">
-  <div  class="container">
-      <a href="#!" class="brand-logo"><i class="material-icons">call_split</i>PubSub</a>
-    <a href="#" data-target="mobile-slideout" class="sidenav-trigger"><i class="material-icons">menu</i></a>
-      <ul class="right hide-on-med-and-down">
-        <li><a href="https://github.com/CDennis-CR/PubSub"><i class="material-icons left">code</i>Join us on Github</a></li>
-      </ul>
+      <div class="container">
+        <a href="#!" class="brand-logo"><i class="material-icons">call_split</i>PubSub</a>
+        <a href="#" data-target="mobile-slideout" class="sidenav-trigger"><i class="material-icons">menu</i></a>
+        <ul class="right hide-on-med-and-down">
+          <li><a href="https://github.com/CDennis-CR/PubSub"><i class="material-icons left">code</i>Join us on
+              Github</a></li>
+        </ul>
+      </div>
     </div>
-  </div>
   </nav>
-<!-- mobile slide out nav -->
+  <!-- mobile slide out nav -->
   <ul class="sidenav" id="mobile-slideout">
     <li>
       <div class="container">
         <b>More on the project</b>
-    </div>
+      </div>
     </li>
-  </div>
-        <li><a href="https://github.com/CDennis-CR/PubSub"><i class="material-icons left">code</i>Join us on Github</a></li>
+    </div>
+    <li><a href="https://github.com/CDennis-CR/PubSub"><i class="material-icons left">code</i>Join us on Github</a></li>
   </ul>
-  
-  <section class="section">    
-  <div  class="container">
-    <div class="row">
-      <div class="col s12">  
-  <h1 class=""><b>Hi!</b> <br />Welcome to <b>PubSub</b>'s demo UI</h1>
-        <p class="flow-text">PubSub is a small publish and subscribe application built in Go. It is designed for small applications and early development stage projects.</p>
-        <p class="flow-text">On this page you will find an example of how PubSub can be used to develop publically accessible webpages directly from your PubSub streams</p>
-      </div>
-    </div>
-  </div>
-</section>
-   <div class="divider"></div>
-  <section class="section">    
-  <div  class="container">
-    <div class="row">
-      <div class="col s12">
-        <h2>SSE stream demo</h2>
-      </div>
-    </div>
-    <div class="row">
-      <!-- Sidebar with topic options-->
-      <div class="col s12 m4 l4">
-        <p><b>Available topics</b></p>
-        
-        <p>Toggle the options to see the output streams to the right</p>
 
-        <a class=" waves-light waves-effect waves-teal btn-flat" onclick=OutputTopics()><i class="material-icons left">refresh</i>refresh topics</a>
-
-   <div class="divider"></div>
-        
-        <div id="topic-list-area" class="ps-margint ps-marginb"><!-- Landing area for topics -->
-        </div><!-- Landing area for topics end -->
-        
-      </div>
-
-      
-      <div id="stream-out" class="col s12 m8 l8"> 
-        
-        <!-- List of selected topics -->        
-  <div class="row">
-    <div class="col s12 m12 l12">
-        <p><b>Selected</b></p>   
-      
-      <div class="container" id="selected-topics-land"><!--selected topics landing area -->   </div><!--selected topics landing area end -->
-      
-    </div>
-  </div>
-        
-   <div class="divider"></div>
-        
-        <!-- Loading holder -->
-  <div class="row">
-    <div class="col s12 m12 l12">
-      <div class="progress hide" id=doingStuff>
-        <div class="indeterminate"></div>
+  <section class="section">
+    <div class="container">
+      <div class="row">
+        <div class="col s12">
+          <h1 class=""><b>Hi!</b> <br />Welcome to <b>PubSub</b>'s demo UI</h1>
+          <p class="flow-text">PubSub is a small publish and subscribe application built in Go. It is designed for small
+            applications and early development stage projects.</p>
+          <p class="flow-text">On this page you will find an example of how PubSub can be used to develop publically
+            accessible webpages directly from your PubSub streams</p>
+        </div>
       </div>
     </div>
-  </div>
-
-  <!-- landing zone for stream data-->
-  <div class="row">
-    <div class="col s12 m12 l12" id="stream-dump"> 
-    </div>
-  </div><!-- landing zone for stream data end -->
-      
-      </div>
-    </div>
-  </div>
   </section>
-        <footer class="page-footer">
-          <div 
-  <div  class="container">
-          <div class="footer-copyright">
-            <div class="container">
-            © 2022 Copyright PubSub Community
+  <div class="divider"></div>
+  <section class="section">
+    <div class="container">
+      <div class="row">
+        <div class="col s12">
+          <h2>SSE stream demo</h2>
+        </div>
+      </div>
+      <div class="row">
+        <!-- Sidebar with topic options-->
+        <div class="col s12 m4 l4">
+          <p><b>Available topics</b></p>
+
+          <p>Toggle the options to see the output streams to the right</p>
+
+          <a class=" waves-light waves-effect waves-teal btn-flat" onclick=OutputTopics()><i
+              class="material-icons left">refresh</i>refresh topics</a>
+
+          <div class="divider"></div>
+
+          <div id="topic-list-area" class="ps-margint ps-marginb">
+            <!-- Landing area for topics -->
+          </div><!-- Landing area for topics end -->
+
+        </div>
+
+
+        <div id="stream-out" class="col s12 m8 l8">
+
+          <!-- List of selected topics -->
+          <div class="row">
+            <div class="col s12 m12 l12">
+              <p><b>Selected</b></p>
+
+              <div class="container" id="selected-topics-land">
+                <!--selected topics landing area -->
+              </div>
+              <!--selected topics landing area end -->
+
             </div>
           </div>
-  </div>
-        </footer>
-  
+
+          <div class="divider"></div>
+
+          <!-- Loading holder -->
+          <div class="row">
+            <div class="col s12 m12 l12">
+              <div class="progress hide" id=doingStuff>
+                <div class="indeterminate"></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- landing zone for stream data-->
+          <div class="row">
+            <div class="col s12 m12 l12" id="stream-dump">
+            </div>
+          </div><!-- landing zone for stream data end -->
+
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <div class="divider"></div>
+  <section class="section">
+    <div class="container">
+      <div class="row">
+        <div class="col s12">
+          <h2>Explore the API</h2>
+        </div>
+      </div>
+      <div class="row">
+        <form class="col s12 m6 l4" id="userQuery" action="#">
+          <div class="row">
+            <div class="input-field col s12 m6 l6">
+              <input type="text" required class="validate" id="username">
+              <label for="username">Username</label>
+            </div>
+            <div class="input-field col s12 m6 l6">
+              <input type="text" required class="validate" id="password">
+              <label for="password">Password</label>
+            </div>
+          </div>
+          <div class="divider"></div>
+          <div class="row">
+            <div class="input-field col s12 m12 l12">
+              <select required id="endpoint" name="endpoint">
+                <option value="" disabled selected>Choose your your endpoint</option>
+                <option value="/users/user/obtain">users/user/obtain</option>
+                <option value="/topics/fetch">topics/fetch</option>
+                <option value="/topics/topic/create">topics/topic/create</option>
+                <option value="/topics/topic/fetch">topics/topic/fetch</option>
+                <option value="/topics/topic/obtain">topics/topic/obtain</option>
+                <option value="/topics/topic/subscribe">topics/topic/subscribe</option>
+                <option value="/topics/topic/unsubscribe">topics/topic/unsubscribe</option>
+                <option value="/topics/topic/messages/write">topics/topic/messages/write</option>
+                <option value="/topics/topic/messages/pull">topics/topic/messages/pull</option>
+              </select>
+              <label for="endpoint">Select an endpoint</label>
+            </div>
+          </div>
+          <div class="row">
+            <div class="input-field col s12 m12 l12">
+              <input type="text" class="validate" id="topic">
+              <label for="topic">Topic</label>
+            </div>
+          </div>
+          <div class="row">
+            <div class="input-field col s12 m6 l6">
+              <input type="text" class="validate" id="webhook_url">
+              <label for="webhook_url">Webhook URL</label>
+            </div>
+            <div class="input-field col s12 m6 l6">
+              <input type="text" class="validate" id="messageID">
+              <label for="messageID">Message ID</label>
+            </div>
+          </div>
+          <div class="row">
+            <div class="input-field col s12 m12 l12">
+              <textarea class="validate materialize-textarea" id="message"></textarea>
+              <label for="message">Message</label>
+            </div>
+          </div>
+          <div class="row">
+            <div class="input-field col s12 m12 l12">
+              <input type="submit" id="submitQuery" formtarget="userQuery" class="waves-effect waves-light btn">
+            </div>
+          </div>
+        </form>
+        <div class="col s12 m6 l8 ">
+          <div class="row">
+            <p>You can pass arguments via the URL query string, a JSON payload in the request body, or a mixture of
+              both.</p>
+          </div>
+          <div class="row">
+          </div>
+          <div class="row">
+            <div class="input-field col s12 m12 l12">
+              <textarea class="materialize-textarea ps-padding blue-grey lighten-5" readonly id="reqString"
+                formtarget="userQuery"></textarea>
+              <label for="reqString">Query string option</label>
+            </div>
+          </div>
+          <div class="row">
+          </div>
+          <div class="row">
+            <div class="input-field col s12 m12 l12">
+              <textarea readonly id="reqBody" formtarget="userQuery"
+                class="materialize-textarea ps-padding blue-grey lighten-5"></textarea>
+              <label for="reqBody">JSON request body option</label>
+            </div>
+          </div>
+          <div class="row">
+            <div class="input-field col s12 m12 l12">
+              <textarea id="code-sample-output-landing-area" formtarget="userQuery" readonly
+                class="materialize-textarea ps-padding blue-grey lighten-5"></textarea>
+              <label for="code-sample-output-landing-area">Response</label>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+
+  <footer class="page-footer">
+
+    <div class="container">
+      <div class="footer-copyright">
+        <div class="container">
+          <span class="left">© 2022 Copyright PubSub Community</span>
+          <span class="right">Built using materializecss.github.io</span>
+        </div>
+      </div>
+    </div>
+  </footer>
+
 </body>
 
 </html>
