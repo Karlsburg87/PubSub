@@ -257,7 +257,11 @@ func (pubsub *PubSub) subscriptionTombstone(consideredStale, resurrectionOpportu
 						//delete subscription
 						delete(topic.PointerPositions[pointer], subscriber.ID)
 						//also delete User Subscriptions list
-						delete(pubsub.Users[subscriber.UsernameHash].Subscriptions, topic.Name) //need User.UsernameHash here instead of User.UUID
+						if _, ok := pubsub.Users[subscriber.UsernameHash]; ok {
+							delete(pubsub.Users[subscriber.UsernameHash].Subscriptions, topic.Name) //need User.UsernameHash here instead of User.UUID
+						} else {
+							log.Printf("Should be able to find user %s to delete topic.Name from Subscriptions but can not.", subscriber.UsernameHash)
+						}
 						//delete from persist store
 						pubsub.persistLayer.Switchboard().subscriberDeleter <- PersistSubscriberStruct{
 							MessageID:    pointer,
