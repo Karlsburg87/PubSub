@@ -9,6 +9,7 @@ import (
 	"time"
 )
 
+//Close is the tidy-up script that should be used as a defer after calling getReady function
 func (pubsub *PubSub) Close() error {
 	if err := pubsub.persistLayer.TidyUp(); err != nil {
 		return err

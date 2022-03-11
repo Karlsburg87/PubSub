@@ -146,21 +146,21 @@
         </div>
       </div>
       <div class="row">
-        <form class="col s12 m6 l6" id="userQuery" action="#">
+        <form class="col s12 m6 l4" id="userQuery" action="#">
           <div class="row">
             <div class="input-field col s12 m6 l6">
-              <input type="text" placeholder="username" required class="validate" id="username">
+              <input type="text" required class="validate" id="username">
               <label for="username">Username</label>
             </div>
             <div class="input-field col s12 m6 l6">
-              <input type="text" placeholder="password" required class="validate" id="password">
+              <input type="text" required class="validate" id="password">
               <label for="password">Password</label>
             </div>
           </div>
           <div class="divider"></div>
           <div class="row">
             <div class="input-field col s12 m12 l12">
-              <select id="endpoint" name="endpoint">
+              <select required id="endpoint" name="endpoint">
                 <option value="" disabled selected>Choose your your endpoint</option>
                 <option value="/users/user/obtain">users/user/obtain</option>
                 <option value="/topics/fetch">topics/fetch</option>
@@ -177,23 +177,23 @@
           </div>
           <div class="row">
             <div class="input-field col s12 m12 l12">
-              <input type="text" placeholder="Topic Name" class="validate" id="topic">
+              <input type="text" class="validate" id="topic">
               <label for="topic">Topic</label>
             </div>
           </div>
           <div class="row">
             <div class="input-field col s12 m6 l6">
-              <input type="text" placeholder="Webhook URL" class="validate" id="webhook_url">
+              <input type="text" class="validate" id="webhook_url">
               <label for="webhook_url">Webhook URL</label>
             </div>
             <div class="input-field col s12 m6 l6">
-              <input type="text" placeholder="message_id" class="validate" id="messageID">
+              <input type="text" class="validate" id="messageID">
               <label for="messageID">Message ID</label>
             </div>
           </div>
           <div class="row">
             <div class="input-field col s12 m12 l12">
-              <textarea placeholder="Message" class="validate materialize-textarea" id="message"></textarea>
+              <textarea class="validate materialize-textarea" id="message"></textarea>
               <label for="message">Message</label>
             </div>
           </div>
@@ -203,33 +203,35 @@
             </div>
           </div>
         </form>
-        <div class="col s12 m6 l6 ">
+        <div class="col s12 m6 l8 ">
           <div class="row">
             <p>You can pass arguments via the URL query string, a JSON payload in the request body, or a mixture of
               both.</p>
           </div>
           <div class="row">
-            <b>URL Request String</b>
           </div>
           <div class="row">
-            <input type="text" class="blue-grey lighten-5" readonly id="reqString" formtarget="userQuery"
-              placeholder="url string">
+            <div class="input-field col s12 m12 l12">
+              <textarea class="materialize-textarea ps-padding blue-grey lighten-5" readonly id="reqString"
+                formtarget="userQuery"></textarea>
+              <label for="reqString">Query string option</label>
+            </div>
           </div>
           <div class="row">
-            <b>URL JSON Request Body</b>
           </div>
           <div class="row">
-            <textarea readonly id="reqBody" formtarget="userQuery" placeholder="url string"
-              class="materialize-textarea blue-grey lighten-5"></textarea>
+            <div class="input-field col s12 m12 l12">
+              <textarea readonly id="reqBody" formtarget="userQuery"
+                class="materialize-textarea ps-padding blue-grey lighten-5"></textarea>
+              <label for="reqBody">JSON request body option</label>
+            </div>
           </div>
           <div class="row">
-            <b>Response:</b>
-          </div>
-          <div class="row">
-            <textarea id="code-sample-output-landing-area" formtarget="userQuery" readonly
-              class="materialize-textarea blue-grey lighten-5">
-              Some code output here
-            </textarea>
+            <div class="input-field col s12 m12 l12">
+              <textarea id="code-sample-output-landing-area" formtarget="userQuery" readonly
+                class="materialize-textarea ps-padding blue-grey lighten-5"></textarea>
+              <label for="code-sample-output-landing-area">Response</label>
+            </div>
           </div>
         </div>
       </div>
@@ -242,7 +244,8 @@
     <div class="container">
       <div class="footer-copyright">
         <div class="container">
-          © 2022 Copyright PubSub Community
+          <span class="left">© 2022 Copyright PubSub Community</span>
+          <span class="right">Built using materializecss.github.io</span>
         </div>
       </div>
     </div>

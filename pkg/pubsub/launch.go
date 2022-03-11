@@ -29,7 +29,7 @@ func getReady(superUsername, superUserpassword string) *PubSub {
 	go pubsub.sseDistro.Routine()
 	//start regular task ticks
 	go pubsub.metranome()
-	//start persistance layer
+	//start persistence layer
 	pubsub.persistLayer, err = NewUnderwriter(pubsub)
 	superUserPing.persistLayer = pubsub.persistLayer
 	if err != nil {

@@ -98,6 +98,8 @@ async function userQuery(evt) {
   evt.preventDefault();
 
   const output = document.getElementById("code-sample-output-landing-area");
+  const reqBody = document.getElementById("reqBody");
+  const reqString = document.getElementById("reqString");
   const form = document.getElementById("userQuery");
 
   let username = form.elements['username'].value;
@@ -136,9 +138,13 @@ async function userQuery(evt) {
 
   output.value = asJSON;
   M.textareaAutoResize(output);
-  document.getElementById("reqBody").value = JSON.stringify(payload, null, "\t");
-  M.textareaAutoResize(document.getElementById("reqBody"));
-  document.getElementById("reqString").value = window.location.protocol + "//" + window.location.host + payloadAsQueryString;
+  reqBody.value = JSON.stringify(payload, null, "\t");
+  M.textareaAutoResize(reqBody);
+  reqString.value = window.location.protocol + "//" + window.location.host + payloadAsQueryString;
+  M.textareaAutoResize(reqString);
+
+
+  M.updateTextFields();
   return false;
 }
 

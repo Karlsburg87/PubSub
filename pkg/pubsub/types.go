@@ -10,7 +10,7 @@ type PubSub struct {
 	Topics Topics
 	Users  Users
 	mu     *sync.RWMutex
-	//persistLayer is the data persistance interface
+	//persistLayer is the data persistence interface
 	persistLayer Persist
 	//sseDistro is unit that supplies Server Sent Events to the mux frontend
 	sseDistro SSEDistro
@@ -65,7 +65,7 @@ type User struct {
 	Created       string            //Created is date user was created
 	mu            *sync.RWMutex
 	tombstone     string //timestamp - deleted in 10 minutes
-	//persistLayer is the data persistance interface
+	//persistLayer is the data persistence interface
 	persistLayer Persist
 }
 

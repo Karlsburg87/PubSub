@@ -23,6 +23,7 @@ type Underwriter struct {
 	db *bolt.DB
 }
 
+//NewUnderwriter creates a new Underwriter instance that implements Persist
 func NewUnderwriter(pubsub *PubSub) (*Underwriter, error) {
 	if err := os.MkdirAll(path.Join(PersistBase, "messages"), 0766); err != nil {
 		return nil, err
@@ -89,6 +90,8 @@ func (uw *Underwriter) Launch() error {
 	return nil
 }
 
+//Switchboard returns the PersistCore field of the underlying Underwriter object
+// to make access to channels to goroutines simpler
 func (uw *Underwriter) Switchboard() PersistCore {
 	return *uw.PersistCore
 }
@@ -101,7 +104,7 @@ func (uw *Underwriter) TidyUp() error {
 	return nil
 }
 
-//WriteUser adds a user to the persistance layer
+//WriteUser adds a user to the persistence layer
 func (uw *Underwriter) WriteUser() error {
 	for user := range uw.userWriter {
 		//GOB encode user
@@ -122,7 +125,7 @@ func (uw *Underwriter) WriteUser() error {
 	return nil
 }
 
-//WriteSubscriber adds a subscriber to the persistance layer
+//WriteSubscriber adds a subscriber to the persistence layer
 func (uw *Underwriter) WriteSubscriber() error {
 	for subscriberStruct := range uw.subscriberWriter {
 		//GOB encode user
@@ -145,7 +148,7 @@ func (uw *Underwriter) WriteSubscriber() error {
 	return nil
 }
 
-//WriteMessage adds a message to the persistance layer
+//WriteMessage adds a message to the persistence layer
 func (uw *Underwriter) WriteMessage() error {
 	for messageStruct := range uw.messageWriter {
 		//store as file in `/store` directory
@@ -277,7 +280,7 @@ func (uw *Underwriter) DeleteSubscriber() error {
 			b := tx.Bucket([]byte("sub"))
 			if subsc.MessageID >= 0 {
 				if err := b.Delete([]byte(fmt.Sprintf("%s/%d/%s", subsc.TopicName, subsc.MessageID, subsc.SubscriberID))); err != nil {
-					return fmt.Errorf("Error issueing Subscriber Delete in BoltDB:%v", err)
+					return fmt.Errorf("Error issuing Subscriber Delete in BoltDB:%v", err)
 				}
 				return nil
 			}
@@ -306,7 +309,7 @@ func (uw *Underwriter) DeleteSubscriber() error {
 //DeleteMessage accepts messageID and topicName
 func (uw *Underwriter) DeleteMessage() error {
 	for msg := range uw.messageDeleter {
-		if err := os.Remove(path.Join(PersistBase, fmt.Sprintf("%s/%d.json", msg.TopicName, msg.MessageID))); err != nil {
+		if err := os.Remove(path.Join(PersistBase, fmt.Sprintf("messages/%s/%d.json", msg.TopicName, msg.MessageID))); err != nil {
 			return err
 		}
 	}

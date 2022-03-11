@@ -23,7 +23,7 @@ func init() {
 type PersistCore struct {
 	pubsub *PubSub
 
-	userWriter       chan User                    //userWriter used for saving User data in persistant layer
+	userWriter       chan User                    //userWriter used for saving User data in persistent layer
 	subscriberWriter chan PersistSubscriberStruct //subscriberWriter chan to persist layer for saving
 	messageWriter    chan PersistMessageStruct    // messageWriter chan to persist layer for saving
 
@@ -32,7 +32,7 @@ type PersistCore struct {
 	messageDeleter    chan PersistMessageStruct    //messageDeleter takes data for msg deletion
 }
 
-//Persist is the interface for adding persistant storage
+//Persist is the interface for adding persistent storage
 type Persist interface {
 	//Launch starts up goroutines
 	Launch() error
@@ -45,13 +45,13 @@ type Persist interface {
 	// files or databases. Usually used as `defer
 	// Persist.TidyUp()`
 	TidyUp() error
-	//WriteUser adds a user to the persistance layer from
+	//WriteUser adds a user to the persistence layer from
 	// a User chan
 	WriteUser() error
-	//WriteSubscriber adds a subscriber to the persistance
+	//WriteSubscriber adds a subscriber to the persistence
 	// layer from persistSubscriberStruct chan
 	WriteSubscriber() error
-	//WriteMessage adds a message to the persistance layer
+	//WriteMessage adds a message to the persistence layer
 	// with from persistMessageStruct
 	WriteMessage() error
 	//GetUseret returns a single user by userID string
@@ -99,7 +99,7 @@ type Streamer struct {
 	Key string
 }
 
-//persistSubscriberStruct is a channel object for sending // messages to be saved by the persist layer
+//PersistSubscriberStruct is a channel object for sending // messages to be saved by the persist layer
 type PersistSubscriberStruct struct {
 	Subscriber   Subscriber //for saving
 	MessageID    int
@@ -107,21 +107,15 @@ type PersistSubscriberStruct struct {
 	SubscriberID string //for deletions
 }
 
-//persistMessageStruct is a channel object for sending // messages to be saved by the persist layer
+//PersistMessageStruct is a channel object for sending // messages to be saved by the persist layer
 type PersistMessageStruct struct {
 	Message   Message //for saving
 	TopicName string
 	MessageID int //for deletions
 }
 
-//restore reinstates a snapshot back to memory if it exists
-func restore(pubsub *PubSub, persist Persist) error {
-	//get ping superuser as default Topic creator
-	var ping *User
-	for _, user := range pubsub.Users {
-		ping = user
-		break //ping should be first and only User at startup
-	}
+//restoreUsers is a component of restore function
+func restoreUsers(ping *User, pubsub *PubSub, persist Persist) error {
 	//restore users first
 	uStream, err := persist.StreamUsers()
 	if err != nil {
@@ -136,8 +130,15 @@ func restore(pubsub *PubSub, persist Persist) error {
 		usr.persistLayer = pubsub.persistLayer
 		pubsub.Users[userShell.Key] = usr
 	}
-	//restore messages second (and implicitly Topics)
+	return nil
+}
+
+//restoreMessages is a component of restore function
+func restoreMessages(ping *User, pubsub *PubSub, persist Persist) error {
 	mStream, err := persist.StreamMessages()
+	if err != nil {
+		return err
+	}
 	for messageShell := range mStream {
 		msg, ok := messageShell.Unit.(*Message)
 		if !ok {
@@ -161,7 +162,11 @@ func restore(pubsub *PubSub, persist Persist) error {
 			pubsub.Topics[topicName].PointerHead = (msgID + 1)
 		}
 	}
-	//restore subscriptions last
+	return nil
+}
+
+//restoreSubscriptions is a component of restore function
+func restoreSubscriptions(ping *User, pubsub *PubSub, persist Persist) error {
 	sStream, err := persist.StreamSubscribers()
 	if err != nil {
 		return err
@@ -189,6 +194,29 @@ func restore(pubsub *PubSub, persist Persist) error {
 		if sub.Creator && sub.ID != ping.UUID {
 			pubsub.Topics[topicName].Creator = sub.ID
 		}
+	}
+	return nil
+}
+
+//restore reinstates a snapshot back to memory if it exists
+func restore(pubsub *PubSub, persist Persist) error {
+	//get ping superuser as default Topic creator
+	var ping *User
+	for _, user := range pubsub.Users {
+		ping = user
+		break //ping should be first and only User at startup
+	}
+	//restore users first
+	if err := restoreUsers(ping, pubsub, persist); err != nil {
+		return err
+	}
+	//restore messages second (and implicitly Topics)
+	if err := restoreMessages(ping, pubsub, persist); err != nil {
+		return err
+	}
+	//restore subscriptions last
+	if err := restoreSubscriptions(ping, pubsub, persist); err != nil {
+		return err
 	}
 
 	return nil

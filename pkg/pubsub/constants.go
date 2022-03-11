@@ -17,6 +17,8 @@ const (
 type PersistUnit int
 
 const (
+	//PersistUser gives an enum option for User using the PersistUnit type
 	PersistUser PersistUnit = iota
+	//PersistSubscriber gives an enum option for Subscriber using the PersistUnit type
 	PersistSubscriber
 )
