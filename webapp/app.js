@@ -102,6 +102,11 @@ async function userQuery(evt) {
   const reqString = document.getElementById("reqString");
   const form = document.getElementById("userQuery");
 
+  //reset output fields
+  output.value = "";
+  reqBody.value = "";
+  reqString.value = "";
+
   let username = form.elements['username'].value;
   let password = form.elements['password'].value;
   let topic = form.elements['topic'].value;
@@ -110,7 +115,7 @@ async function userQuery(evt) {
   let messageID = form.elements['messageID'].value;
   let webhookURL = form.elements['webhook_url'].value;
 
-  let payload = { username: username, password: password, topic: topic, message: message }
+  let payload = { username: username, password: password, topic: topic, message: message, message_id: parseInt(messageID), webhook_url: webhookURL }
   let payloadAsQueryString = `?username=${username}&password=${password}`;
   if (topic) {
     payloadAsQueryString += `&topic=${topic}`;

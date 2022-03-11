@@ -185,6 +185,11 @@ func restoreSubscriptions(ping *User, pubsub *PubSub, persist Persist) error {
 		}
 		topicName := pieces[len(pieces)-3]
 
+		//Do not restore topic if topic has no messages - otherwise a topic restore is done in restoreMessages
+		if _, ok := pubsub.Topics[topicName]; !ok {
+			continue
+		}
+
 		if _, ok := pubsub.Topics[topicName].PointerPositions[msgID]; !ok {
 			pubsub.Topics[topicName].PointerPositions[msgID] = make(Subscribers)
 		}

@@ -169,6 +169,11 @@ func topicRetrieveHandler(rw http.ResponseWriter, r *http.Request, pubsub *PubSu
 	if err != nil {
 		return
 	}
+	//Check for topic in request - no empty string topic names
+	if payload.Topic == "" {
+		HTTPErrorResponse(fmt.Errorf("Topic Name is required"), http.StatusBadRequest, rw)
+		return
+	}
 	//create topic
 	var topic *Topic
 	switch verb {
@@ -226,6 +231,11 @@ func messageWriteHandler(rw http.ResponseWriter, r *http.Request, pubsub *PubSub
 	//login user
 	user, payload, err := HTTPAuthenticate(rw, r, pubsub)
 	if err != nil {
+		return
+	}
+	//Check topic is specified in request - no empty string topic names
+	if payload.Topic == "" {
+		HTTPErrorResponse(fmt.Errorf("Topic Name is required"), http.StatusBadRequest, rw)
 		return
 	}
 	//get topic
