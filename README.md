@@ -181,4 +181,4 @@ type IncomingReq struct{
 - [ ] Unit tests
 - [ ] Inform Push subscribers when their subscriptions have been garbage collected as this may be due to low frequency publishing rates of the Topic rather than inactive subscribers.
 - [ ] Add ability to config the tombstoner deadlines.
-- [ ] Fix User already exists bug that effeects users after restore from persistance layer 
+- [x] Fix User already exists bug that effeects users after restore from persistance layer 

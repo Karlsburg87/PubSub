@@ -20,6 +20,6 @@ func Start(port int) { //add options struct as second arg
 	}(closer)
 
 	//start API server in main thread
-	log.Printf("Server running on port %d\n", port)
+	log.Printf("API Server running on port %d\n", port)
 	log.Fatalln(server.ListenAndServe())
 }

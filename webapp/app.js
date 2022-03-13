@@ -15,12 +15,14 @@ document.addEventListener('DOMContentLoaded', function () {
   //for the select dropdowns
   var elems = document.querySelectorAll('select');
   var instancesOfSelect = M.FormSelect.init(elems);
-});
-{
+
+  //Topic refresh button functionality
+  document.getElementById("topicRefresh").onclick = OutputTopics;
+
+  //Explore the API form
   let formQuery = document.getElementById("userQuery");
   formQuery.addEventListener('submit', userQuery, true);
-}
-
+});
 //-------------------------------------------------------INITS
 
 //Fetch and show topics from load
@@ -43,6 +45,18 @@ function react(evt) {
 //--------------------------------------------HELPER FUNCTIONS
 //display topics as buttons on the left pane
 function OutputTopics() {
+  //Close existing SSE connection
+  if (SSE !== undefined) {
+    SSE.close()
+  }
+  //Reset the selected area on top results stream
+  const landingArea = document.getElementById("selected-topics-land");
+  while (landingArea.firstChild) {
+    landingArea.removeChild(landingArea.lastChild);
+  }
+  //hide progress bar
+  document.getElementById("doingStuff").classList.add("hide");
+  //get topics and display
   GetTopics()
     .then((topicList) => { AddTopicItems(topicList) })
     .catch(err => { console.error(err) })
