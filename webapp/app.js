@@ -1,6 +1,7 @@
 //----------------------------------------------------GLOBALS
 //Base URL for the SSE streaming service
 const pubsubURL = window.location.protocol + "//" + window.location.host;
+const pubsubSSEURL = window.location.protocol + "//" + window.location.hostname + ":4039";
 //List of topics use has selected to receive stream messages from
 let streamTopics = new Map();
 //The SSE connection
@@ -31,7 +32,6 @@ OutputTopics();
 function react(evt) {
   //handle incoming messages
   evt.addEventListener("message", function (event) {
-    console.log(JSON.parse(event.data));
     AddStreamItem(JSON.parse(event.data));
   })
   //handle SSE errors
@@ -67,7 +67,6 @@ async function GetTopics() {
     console.error(err);
     return undefined;
   }
-  console.log("Topics: ", data);
   return data;
 }
 
@@ -87,7 +86,7 @@ function StartSSE() {
     queryString += `topic=${encodeURIComponent(topicName)}&`;
   }
   //console.log(queryString.slice(0, -1))
-  return new EventSource(pubsubURL + "/sse?" + queryString.slice(0, -1));
+  return new EventSource(pubsubSSEURL + "/sse?" + queryString.slice(0, -1));
 }
 
 
@@ -263,7 +262,6 @@ function clearChildren(parentHTMLNode) {
 
 //ensures there are no more than N number of child elements of the parentNode
 function keepElementsBelowN(parentNode, N) {
-  console.log(parentNode, parentNode.children.length);
   if (parentNode.children.length > N) {
     while (parentNode.children.length > N) {
       parentNode.removeChild(parentNode.lastChild)

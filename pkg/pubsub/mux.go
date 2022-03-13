@@ -8,6 +8,19 @@ import (
 	"time"
 )
 
+//MuxType is an enum for chosing mux configs for server use cases
+type MuxType int
+
+const (
+	//MuxAPI sets up routes used for the public API access
+	MuxAPI MuxType = iota
+	//MuxSSE sets up a route for Server Sent Events access
+	MuxSSE
+	//MuxAll sets up all available routes. Ensure server setting allows -1 write timeout
+	// to avoid closing connections unintentionally for SSE
+	MuxAll
+)
+
 //CreateMux builds the routing for the application. Intended for use with CreateServer
 //
 //Verbs ------
@@ -23,42 +36,53 @@ import (
 //Pull   : Read information from server by http request (pull) after subscribing to a pull agreement of event data
 //
 //Subscribe/Unsubscribe : Setup or delete push/pull agreement
-func CreateMux() (*http.ServeMux, *PubSub) {
+//
+//
+//Passing nil for pubsub causes a base PubSub instancee to be created and used. Passing a pointer to an existing PubSub
+// will use that for mux functions and return it back to the caller with the created mux.
+func CreateMux(mtype MuxType, pubsub *PubSub) (*http.ServeMux, *PubSub) {
 	mux := http.NewServeMux()
 	//shared mux resources and boot superuser and core struct
-	pubsub := getReady("ping", "pingpassword")
+	if pubsub == nil {
+		pubsub = getReady("ping", "pingpassword")
+	}
 	//routers - https://pkg.go.dev/net/http#ServeMux
-	mux.HandleFunc("/users/user/obtain", func(rw http.ResponseWriter, r *http.Request) {
-		userCreateHandler(rw, r, pubsub)
-	})
-	mux.HandleFunc("/topics/topic/subscribe", func(rw http.ResponseWriter, r *http.Request) {
-		subscriptionSubscribeHandler(rw, r, pubsub)
-	})
-	mux.HandleFunc("/topics/topic/unsubscribe", func(rw http.ResponseWriter, r *http.Request) {
-		subscriptionUnsubscribeHandler(rw, r, pubsub)
-	})
-	mux.HandleFunc("/topics/fetch", func(rw http.ResponseWriter, r *http.Request) {
-		topicsListHandler(rw, r, pubsub)
-	})
-	mux.HandleFunc("/topics/topic/create", func(rw http.ResponseWriter, r *http.Request) {
-		topicRetrieveHandler(rw, r, pubsub, createVerb)
-	})
-	mux.HandleFunc("/topics/topic/fetch", func(rw http.ResponseWriter, r *http.Request) {
-		topicRetrieveHandler(rw, r, pubsub, fetchVerb)
-	})
-	mux.HandleFunc("/topics/topic/obtain", func(rw http.ResponseWriter, r *http.Request) {
-		topicRetrieveHandler(rw, r, pubsub, obtainVerb)
-	})
-	mux.HandleFunc("/topics/topic/messages/pull", func(rw http.ResponseWriter, r *http.Request) {
-		messagePullHandler(rw, r, pubsub)
-	})
-	mux.HandleFunc("/topics/topic/messages/write", func(rw http.ResponseWriter, r *http.Request) {
-		messageWriteHandler(rw, r, pubsub)
-	})
-	//UI based routes
-	mux.HandleFunc("/sse", func(rw http.ResponseWriter, r *http.Request) {
-		sseHandler(rw, r, pubsub)
-	})
+	if mtype == MuxAPI || mtype == MuxAll {
+		mux.HandleFunc("/users/user/obtain", func(rw http.ResponseWriter, r *http.Request) {
+			userCreateHandler(rw, r, pubsub)
+		})
+		mux.HandleFunc("/topics/topic/subscribe", func(rw http.ResponseWriter, r *http.Request) {
+			subscriptionSubscribeHandler(rw, r, pubsub)
+		})
+		mux.HandleFunc("/topics/topic/unsubscribe", func(rw http.ResponseWriter, r *http.Request) {
+			subscriptionUnsubscribeHandler(rw, r, pubsub)
+		})
+		mux.HandleFunc("/topics/fetch", func(rw http.ResponseWriter, r *http.Request) {
+			topicsListHandler(rw, r, pubsub)
+		})
+		mux.HandleFunc("/topics/topic/create", func(rw http.ResponseWriter, r *http.Request) {
+			topicRetrieveHandler(rw, r, pubsub, createVerb)
+		})
+		mux.HandleFunc("/topics/topic/fetch", func(rw http.ResponseWriter, r *http.Request) {
+			topicRetrieveHandler(rw, r, pubsub, fetchVerb)
+		})
+		mux.HandleFunc("/topics/topic/obtain", func(rw http.ResponseWriter, r *http.Request) {
+			topicRetrieveHandler(rw, r, pubsub, obtainVerb)
+		})
+		mux.HandleFunc("/topics/topic/messages/pull", func(rw http.ResponseWriter, r *http.Request) {
+			messagePullHandler(rw, r, pubsub)
+		})
+		mux.HandleFunc("/topics/topic/messages/write", func(rw http.ResponseWriter, r *http.Request) {
+			messageWriteHandler(rw, r, pubsub)
+		})
+	}
+	if mtype == MuxSSE || mtype == MuxAll {
+		//UI based routes
+		mux.HandleFunc("/sse", func(rw http.ResponseWriter, r *http.Request) {
+			sseHandler(rw, r, pubsub)
+		})
+	}
+
 	mux.HandleFunc("/", homepageHandler)
 
 	return mux, pubsub
