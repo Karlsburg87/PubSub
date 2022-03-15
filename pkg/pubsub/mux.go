@@ -1,12 +1,15 @@
 package pubsub
 
 import (
+	"embed"
 	"fmt"
 	"log"
 	"net/http"
-	"os"
 	"time"
 )
+
+//go:embed webapp
+var webapp embed.FS
 
 //MuxType is an enum for chosing mux configs for server use cases
 type MuxType int
@@ -362,21 +365,31 @@ func sseHandler(rw http.ResponseWriter, r *http.Request, pubsub *PubSub) {
 
 //homepageHandler outputs the homepage webapp
 func homepageHandler(rw http.ResponseWriter, r *http.Request) {
+	//embed html files so can run on scratch docker base image
+
+	wa := http.FS(webapp)
 	//Check if request is for supporting files- .js and .css
 	switch r.URL.Path {
 	case "/app.js":
-		http.ServeFile(rw, r, "webapp/app.js")
-		return
-	case "/app.css":
-		http.ServeFile(rw, r, "webapp/app.css")
-		return
-	}
+		file, err := wa.Open("webapp/app.js")
+		if err := HTTPErrorResponse(err, http.StatusInternalServerError, rw); err != nil {
+			return
+		}
+		http.ServeContent(rw, r, "app.js", time.Time{}, file)
 
-	//serve homepage via serveContent to allow for templating
-	file, err := os.Open("webapp/app.html")
-	if err := HTTPErrorResponse(err, http.StatusInternalServerError, rw); err != nil {
-		return
+	case "/app.css":
+		file, err := wa.Open("webapp/app.css")
+		if err := HTTPErrorResponse(err, http.StatusInternalServerError, rw); err != nil {
+			return
+		}
+		http.ServeContent(rw, r, "app.css", time.Time{}, file)
+
+	default:
+		//serve homepage via serveContent to allow for templating
+		file, err := wa.Open("webapp/app.html")
+		if err := HTTPErrorResponse(err, http.StatusInternalServerError, rw); err != nil {
+			return
+		}
+		http.ServeContent(rw, r, "index.html", time.Time{}, file)
 	}
-	defer file.Close()
-	http.ServeContent(rw, r, "index.html", time.Time{}, file)
 }

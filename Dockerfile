@@ -1,5 +1,5 @@
 #Containerfile for project PubSub
-FROM golang:alpine AS build-env
+FROM docker.io/library/golang:1-alpine AS build-env
 WORKDIR /go/src/pubsub
 
 #Let us cache modules retrieval as they do not change often.
@@ -15,7 +15,7 @@ RUN apk --update add ca-certificates
 COPY . .
 
 #Path to main function
-RUN CGO_ENABLED=0 GOOS=linux GOARCH= amd64 go build -o /pubsub/bin
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o /pubsub/bin
 
 #Production image - scratch is the smallest possible but Alpine is a good second for bash-like access
 FROM scratch
@@ -32,7 +32,10 @@ ENV PS_SUPERADMIN_PASSWORD=${SUPERADMINPASSWORD}
 ENV PS_PORT=${PORT}
 ENV PS_STORE=${STORE}
 
+#Expose port for default API
 EXPOSE 8080
+#Expose port for SSE streams
+EXPOSE 4039
 
 VOLUME ["${STORE}"]
 
