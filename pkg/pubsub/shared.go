@@ -8,6 +8,7 @@ import (
 	"log"
 	"math/rand"
 	"net/http"
+	"os"
 	"strconv"
 	"strings"
 	"sync"
@@ -182,4 +183,13 @@ func RandomString(n int) string {
 		b[i] = letterBytes[rand.Int63()%int64(len(letterBytes))]
 	}
 	return string(b)
+}
+
+//envarOrDefault pulls the environment variable for a variable name. If empty it returns the default value
+func envarOrDefault(environmentVariable string, defaultString string) string {
+	v, ok := os.LookupEnv(environmentVariable)
+	if (v == "" && ok) || v != "" {
+		return v
+	}
+	return defaultString
 }

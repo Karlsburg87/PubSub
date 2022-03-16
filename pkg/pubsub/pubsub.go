@@ -388,7 +388,7 @@ func (pubsub *PubSub) metranome() {
 		for {
 			select {
 			case <-min.C:
-				if err := pubsub.Tombstone(3*60*time.Minute, 30*time.Minute); err != nil {
+				if err := pubsub.Tombstone(durationToStale, durationForResurrect); err != nil {
 					log.Println(err) //!Needs logging!
 				}
 

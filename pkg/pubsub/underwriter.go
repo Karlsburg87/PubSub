@@ -25,10 +25,10 @@ type Underwriter struct {
 
 //NewUnderwriter creates a new Underwriter instance that implements Persist
 func NewUnderwriter(pubsub *PubSub) (*Underwriter, error) {
-	if err := os.MkdirAll(path.Join(PersistBase, "messages"), 0766); err != nil {
+	if err := os.MkdirAll(path.Join(persistToDirPath, "messages"), 0766); err != nil {
 		return nil, err
 	}
-	db, err := bolt.Open(path.Join(PersistBase, "underwriter.db"), 0766, &bolt.Options{Timeout: 1 * time.Second})
+	db, err := bolt.Open(path.Join(persistToDirPath, "underwriter.db"), 0766, &bolt.Options{Timeout: 1 * time.Second})
 	if err != nil {
 		return nil, err
 	}
@@ -154,7 +154,7 @@ func (uw *Underwriter) WriteSubscriber() error {
 func (uw *Underwriter) WriteMessage() error {
 	for messageStruct := range uw.messageWriter {
 		//store as file in `/store` directory
-		dirStructure := path.Join(PersistBase, "messages", messageStruct.TopicName)
+		dirStructure := path.Join(persistToDirPath, "messages", messageStruct.TopicName)
 		loc := path.Join(dirStructure, fmt.Sprintf("/%d.json", messageStruct.Message.ID))
 
 		if err := os.MkdirAll(dirStructure, 0766); err != nil {
@@ -222,7 +222,7 @@ func (uw *Underwriter) GetSubscriber(subscriberID string, messageID int, topicNa
 
 //GetMessage returns a single message by messageID and topicName
 func (uw *Underwriter) GetMessage(messageID int, topicName string) (Message, error) {
-	file, err := os.Open(path.Join(PersistBase, fmt.Sprintf("%s/%d.json", topicName, messageID)))
+	file, err := os.Open(path.Join(persistToDirPath, fmt.Sprintf("%s/%d.json", topicName, messageID)))
 	if err != nil {
 		return Message{}, err
 	}
@@ -252,7 +252,7 @@ func (uw *Underwriter) StreamSubscribers() (chan Streamer, error) {
 func (uw *Underwriter) StreamMessages() (chan Streamer, error) {
 	streamer := make(chan Streamer)
 	go func() {
-		messageStreamer(path.Join(PersistBase, "messages"), streamer)
+		messageStreamer(path.Join(persistToDirPath, "messages"), streamer)
 		close(streamer)
 		streamer = nil
 	}()
@@ -313,7 +313,7 @@ func (uw *Underwriter) DeleteSubscriber() error {
 //DeleteMessage accepts messageID and topicName
 func (uw *Underwriter) DeleteMessage() error {
 	for msg := range uw.messageDeleter {
-		if err := os.Remove(path.Join(PersistBase, fmt.Sprintf("messages/%s/%d.json", msg.TopicName, msg.MessageID))); err != nil {
+		if err := os.Remove(path.Join(persistToDirPath, fmt.Sprintf("messages/%s/%d.json", msg.TopicName, msg.MessageID))); err != nil {
 			return err
 		}
 	}

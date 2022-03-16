@@ -2,22 +2,11 @@ package pubsub
 
 import (
 	"fmt"
-	"os"
 	"path"
 	"strconv"
 	"strings"
 	"sync"
 )
-
-//PersistBase gives the root directory location to which data should be persisted. Set by envar `STORE`
-var PersistBase string
-
-func init() {
-	PersistBase = os.Getenv("STORE")
-	if PersistBase == "" {
-		PersistBase = "store/"
-	}
-}
 
 //PersistCore is the minimum fields an implementor of Persist should have
 type PersistCore struct {

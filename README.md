@@ -50,7 +50,7 @@ The aim is to be quick *enough* and not use excessive resource. Our aim is to ru
 PubSub Benchmarks to follow (*see Roadmap section*)
 
 ## Status
-**pubSub** is in initial development (v0) stage and subject to constant change to its API.
+**PubSub** is in initial development (v0.xx) stage and subject to constant change to its API.
 
 **Not yet suitable for deployment in production environments**
 
@@ -131,6 +131,19 @@ type IncomingReq struct{
 |`/topics/topic/messages/pull`|Get a message from a topic's message queue. Messages start at pointer position 1|topic, message_id|
 |`/topics/topic/messages/write`|Write a message to a topic queue|topic, message|
 
+## Settings
+PubSub is configured through use of environemnt variables. The following are a list of configurable options. 
+
+Note that the Dockerfile comes with best practise defaults that can be overridden in the `docker build` step using the same variable names and the `--build-arg` flag
+|Environment Variable|Usaage|Default|
+|-|-|-|
+|`PS_STORE`|The root directory where PubSub data will be persisted to for the purposes of disaster recovery|'store/'|
+|`PS_SUPERADMIN_USERNAME`|The username of an initial user - created automatically on startup. Despite the name Superadmin is a regular user and exists as an initialiser. Will be garbage collected if not used operationally. Can be easily altered to have admin privilidges by a developer|'ping'|
+|`PS_SUPERADMIN_PASSWORD`|Password of the initial user. If not set a random string will be used. This effectively makes user ping unusable as the password is not printed to stdout|random alphanumeric string|
+|`PS_DURATION_STALE`|The time allowed before an orphaned object is tombstoned. A duration string format* |'3h'|
+|`PS_DURATION_RESURRECT`|The time allowed after tombstoning before a deletion is committed. A duration string format|'30m'|
+
+<pre> [*] A duration string is a possibly signed sequence of decimal numbers, each with optional fraction and a unit suffix, such as "300ms", "-1.5h" or "2h45m". Valid time units are "ns", "us" (or "µs"), "ms", "s", "m", "h".</pre>
 
 ## Object Life Cycles & Limitations
 ### Users

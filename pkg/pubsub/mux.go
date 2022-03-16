@@ -47,7 +47,7 @@ func CreateMux(mtype MuxType, pubsub *PubSub) (*http.ServeMux, *PubSub) {
 	mux := http.NewServeMux()
 	//shared mux resources and boot superuser and core struct
 	if pubsub == nil {
-		pubsub = getReady("ping", "pingpassword")
+		pubsub = getReady(adminUsername, adminPassword)
 	}
 	//routers - https://pkg.go.dev/net/http#ServeMux
 	if mtype == MuxAPI || mtype == MuxAll {
