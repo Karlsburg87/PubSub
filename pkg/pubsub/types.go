@@ -18,7 +18,6 @@ type PubSub struct {
 
 //Topic is the setup for topics
 type Topic struct {
-	//ID               int                 //sequential number--unused: safe to delete--
 	Creator          string              //Creater is a User ID for the creator user. Only User that can write to the topic
 	Name             string              //user given name for the topic (sanitized)
 	Messages         map[int]Message     //message queue

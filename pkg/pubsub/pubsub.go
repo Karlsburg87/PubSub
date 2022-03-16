@@ -133,6 +133,8 @@ func (pubsub *PubSub) PushWebhooks() error {
 func (pubsub *PubSub) webhookRoutine(topic *Topic, message Message, subscriber *Subscriber, wg *sync.WaitGroup) {
 	defer wg.Done()
 	if subscriber.PushURL != "" {
+		subscriber.mu.Lock()
+		defer subscriber.mu.Unlock()
 		//exit it still need to backoff from last send
 		if !subscriber.lastpushAttempt.IsZero() && subscriber.lastpushAttempt.Add(subscriber.backoff).After(time.Now()) {
 			return
@@ -234,7 +236,7 @@ func (pubsub *PubSub) subscriptionTombstone(consideredStale, resurrectionOpportu
 		}
 		for pointer, subscribers := range topic.PointerPositions {
 			//skip pointer to head+1 message as these are queued awaiting the next added message
-			if pointer > topic.PointerHead {
+			if pointer >= topic.PointerHead {
 				continue
 			}
 			//if pointer is to a message less than `consideredStale` old - leave alone
@@ -257,6 +259,7 @@ func (pubsub *PubSub) subscriptionTombstone(consideredStale, resurrectionOpportu
 					if tombstoneDate.Add(resurrectionOpportunity).Before(time.Now()) {
 						//delete subscription
 						delete(topic.PointerPositions[pointer], subscriber.ID)
+						log.Printf("Deleted subscription %s from topic %s\n", subscriber.ID, topic.Name)
 						//also delete User Subscriptions list
 						if _, ok := pubsub.Users[subscriber.UsernameHash]; ok {
 							delete(pubsub.Users[subscriber.UsernameHash].Subscriptions, topic.Name) //need User.UsernameHash here instead of User.UUID
@@ -307,7 +310,8 @@ func (pubsub *PubSub) messageTombstone(resurrectionOpportunity time.Duration) er
 			}
 			//check if tombstone is older than resurrectionOpportunity duration
 			if isStale(tombstone, resurrectionOpportunity) {
-				delete(topic.Messages, lowestPosition)
+				delete(pubsub.Topics[topicName].Messages, lowestPosition)
+				log.Printf("Deleted message %d from topic %s\n", lowestPosition, topic.Name)
 				//remove from persist store
 				pubsub.persistLayer.Switchboard().messageDeleter <- PersistMessageStruct{
 					TopicName: topicName,
@@ -339,6 +343,7 @@ func (pubsub *PubSub) topicTombstone(consideredStale time.Duration) error {
 			}
 			if isStale(tdate, consideredStale) {
 				delete(pubsub.Topics, topicName)
+				log.Printf("Deleted topic %s\n", topicName)
 			}
 		}
 	}
@@ -366,6 +371,7 @@ func (pubsub *PubSub) userTombstone(resurrectionOpportunity time.Duration) error
 		}
 		if isStale(d, resurrectionOpportunity) {
 			delete(pubsub.Users, usr)
+			log.Printf("Deleted user %s\n", usr)
 			//delete from persist store
 			pubsub.persistLayer.Switchboard().userDeleter <- usr
 		}

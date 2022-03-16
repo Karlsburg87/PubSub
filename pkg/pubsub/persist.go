@@ -178,12 +178,13 @@ func restoreSubscriptions(ping *User, pubsub *PubSub, persist Persist) error {
 		if _, ok := pubsub.Topics[topicName]; !ok {
 			continue
 		}
-
+		//restore subscription
 		if _, ok := pubsub.Topics[topicName].PointerPositions[msgID]; !ok {
 			pubsub.Topics[topicName].PointerPositions[msgID] = make(Subscribers)
 		}
 		pubsub.Topics[topicName].PointerPositions[msgID][subID] = sub
-
+		//restore subscription reference to User subscription list
+		pubsub.Users[sub.UsernameHash].Subscriptions[topicName] = sub.PushURL
 		//restore as creator of Topic if marked on subscription and not the default ping
 		if sub.Creator && sub.ID != ping.UUID {
 			pubsub.Topics[topicName].Creator = sub.ID

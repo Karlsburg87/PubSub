@@ -155,20 +155,17 @@ func (user *User) PullMessage(topic *Topic, messageID int) (Message, error) {
 	defer topic.mu.Unlock()
 	if msg, ok := topic.Messages[messageID]; ok {
 		//Move pointer
-		for pos, subs := range topic.PointerPositions {
-			if s, ok := subs[user.UUID]; ok {
-				if messageID > pos {
-					break
+		for position, sub := range topic.PointerPositions { //find current pointer position
+			for subID := range sub {
+				if subID == user.UUID {
+					if messageID > position {
+						if _, ok := topic.PointerPositions[messageID+1]; !ok {
+							topic.PointerPositions[messageID+1] = make(Subscribers)
+						}
+						topic.PointerPositions[messageID+1][user.UUID] = topic.PointerPositions[position][user.UUID]
+						delete(topic.PointerPositions[position], user.UUID)
+					}
 				}
-				topic.PointerPositions[messageID][user.UUID] = s
-				delete(topic.PointerPositions[pos], user.UUID)
-
-				user.mu.Lock()
-				//remove any user tombstones
-				if err := user.removeTombstone(); err != nil {
-					return Message{}, err
-				}
-				user.mu.Unlock()
 			}
 		}
 		return msg, nil

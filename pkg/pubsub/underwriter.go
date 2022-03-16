@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/gob"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -314,6 +315,10 @@ func (uw *Underwriter) DeleteSubscriber() error {
 func (uw *Underwriter) DeleteMessage() error {
 	for msg := range uw.messageDeleter {
 		if err := os.Remove(path.Join(persistToDirPath, fmt.Sprintf("messages/%s/%d.json", msg.TopicName, msg.MessageID))); err != nil {
+			if errors.Is(err, os.ErrNotExist) {
+				log.Printf("Error of type 'does not exist' when deleting message #%d from %s", msg.MessageID, msg.TopicName)
+				continue
+			}
 			return err
 		}
 	}
