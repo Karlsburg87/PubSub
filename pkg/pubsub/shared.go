@@ -106,11 +106,11 @@ func HTTPErrorResponse(err error, errType int, rw http.ResponseWriter) error {
 		}
 		out, errMarshall := json.MarshalIndent(errResponse, " ", " ")
 		if errMarshall != nil {
-			log.Panicln(fmt.Errorf("Error marshalling json in HTTPErrorResponse: %v", err))
+			log.Panicln(fmt.Errorf("error marshalling json in HTTPErrorResponse: %v", err))
 		}
 		rw.Header().Set("content-type", "application/json")
 		if _, err := fmt.Fprint(rw, string(out)); err != nil {
-			log.Panicln(fmt.Errorf("Error writing to rw.Write in HTTPErrorResponse: %v", err))
+			log.Panicln(fmt.Errorf("error writing to rw.Write in HTTPErrorResponse: %v", err))
 		}
 		return err
 	}
@@ -130,7 +130,7 @@ func HTTPAuthenticate(rw http.ResponseWriter, r *http.Request, pubsub *PubSub) (
 	//Check there is a username and password
 	if payload.Username == "" || payload.Password == "" {
 		log.Println("Request did not pass full login credentials. Missing Username or Password")
-		if err := HTTPErrorResponse(fmt.Errorf("Username and password must be given as request parameters"), http.StatusBadRequest, rw); err != nil {
+		if err := HTTPErrorResponse(fmt.Errorf("username and password must be given as request parameters"), http.StatusBadRequest, rw); err != nil {
 			fmt.Println("this ran")
 			return nil, payload, err
 		}

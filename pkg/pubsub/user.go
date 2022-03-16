@@ -26,7 +26,7 @@ func (user *User) Subscribe(topic *Topic, pushURL string) error {
 	// expected performance for Subscription to be at the
 	// head position from the last point at which it was called
 	if err := user.Unsubscribe(topic); err != nil {
-		return fmt.Errorf("Error when unsubscribing before resubscribing: %v", err)
+		return fmt.Errorf("error when unsubscribing before resubscribing: %v", err)
 	}
 
 	user.mu.Lock()
@@ -148,7 +148,7 @@ func (user *User) PullMessage(topic *Topic, messageID int) (Message, error) {
 	if !ok {
 		return Message{}, fmt.Errorf("User not subscribed to Topic")
 	} else if pushURL != "" {
-		return Message{}, fmt.Errorf("Not Allowed. User attempting to pull from push subscription")
+		return Message{}, fmt.Errorf("operationn not allowed - user attempting to pull from push subscription")
 	}
 	//get message from position if exists
 	topic.mu.Lock()
@@ -173,7 +173,7 @@ func (user *User) PullMessage(topic *Topic, messageID int) (Message, error) {
 		}
 		return msg, nil
 	}
-	return Message{}, fmt.Errorf("This message does not exist. Head point is %d", topic.PointerHead)
+	return Message{}, fmt.Errorf("this message does not exist - head point is %d so latest message is #%d", topic.PointerHead, topic.PointerHead-1)
 }
 
 //------------------helpers
@@ -181,7 +181,7 @@ func (user *User) PullMessage(topic *Topic, messageID int) (Message, error) {
 //GetCreatedDateTime fetches the created datetime string and parses it
 func (user User) GetCreatedDateTime() (time.Time, error) {
 	if user.Created == "" {
-		return time.Time{}, fmt.Errorf("No date string exists.\nUser: %+v\n", user)
+		return time.Time{}, fmt.Errorf("no date string exists.\nUser: %+v", user)
 	}
 	return time.Parse(time.RFC3339, user.Created)
 }

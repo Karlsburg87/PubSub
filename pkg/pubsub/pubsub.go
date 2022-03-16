@@ -37,7 +37,7 @@ func (pubsub *PubSub) GetUser(username, password string) (*User, error) {
 		}
 		//password incorrect return error
 		pubsub.mu.RUnlock()
-		return nil, fmt.Errorf("User already exists. Please enter correct credentials to login or select a new username to create a new user.")
+		return nil, fmt.Errorf("user already exists - please enter correct credentials to login or select a new username to create a new user")
 	}
 	pubsub.mu.RUnlock()
 	//share access to the core persistLayer with new user - no lock as init once at startup
@@ -150,7 +150,7 @@ func (pubsub *PubSub) webhookRoutine(topic *Topic, message Message, subscriber *
 		resp, err := http.Post(subscriber.PushURL, "application/json", bytes.NewReader(parcel))
 		if err != nil || (resp.StatusCode != 200 && resp.StatusCode != 201) {
 			//debug logging
-			log.Println(fmt.Errorf("Could not deliver msg: error: %v (StatusCode: %d)\nSubscriber: %s, [Message: %+v]", err, resp.StatusCode, subscriber.ID, msgParcel))
+			log.Println(fmt.Errorf("could not deliver msg: error: %v (StatusCode: %d)\nSubscriber: %s, [Message: %+v]", err, resp.StatusCode, subscriber.ID, msgParcel))
 
 			pubsub.mu.RLock()
 			p := pubsub.Topics[topic.Name]
@@ -380,21 +380,21 @@ func (pubsub *PubSub) userTombstone(resurrectionOpportunity time.Duration) error
 //TODO: Errors need to be logged in kv-db and followed up to prevent errors going unchecked or panicking on non catastrophic errors
 func (pubsub *PubSub) metranome() {
 	//time intervals
-	sec := time.Tick(1 * time.Second)
-	milliSecs := time.Tick(80 * time.Millisecond)
-	min := time.Tick(1 * time.Second * 60)
+	sec := time.NewTicker(1 * time.Second)
+	milliSecs := time.NewTicker(80 * time.Millisecond)
+	min := time.NewTicker(1 * time.Second * 60)
 	//actions for each
 	go func() {
 		for {
 			select {
-			case <-min:
+			case <-min.C:
 				if err := pubsub.Tombstone(3*60*time.Minute, 30*time.Minute); err != nil {
 					log.Println(err) //!Needs logging!
 				}
 
-			case <-sec:
+			case <-sec.C:
 
-			case <-milliSecs:
+			case <-milliSecs.C:
 				if err := pubsub.PushWebhooks(); err != nil {
 					log.Println(err) //!Needs logging!
 				}

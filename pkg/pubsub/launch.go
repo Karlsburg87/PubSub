@@ -33,7 +33,7 @@ func getReady(superUsername, superUserpassword string) *PubSub {
 	pubsub.persistLayer, err = NewUnderwriter(pubsub)
 	superUserPing.persistLayer = pubsub.persistLayer
 	if err != nil {
-		log.Fatalln(fmt.Errorf("Error spinning up new Underwriter object: %v", err))
+		log.Fatalln(fmt.Errorf("error spinning up new Underwriter object: %v", err))
 	}
 
 	if err := pubsub.persistLayer.Launch(); err != nil {

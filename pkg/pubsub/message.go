@@ -8,7 +8,7 @@ import (
 //GetCreatedDateTime fetches the created datetime string and parses it
 func (message Message) GetCreatedDateTime() (time.Time, error) {
 	if message.Created == "" {
-		return time.Time{}, fmt.Errorf("Error as no date string exists.\nMessage: %+v", message)
+		return time.Time{}, fmt.Errorf("error as no date string exists.\nMessage: %+v", message)
 	}
 	return time.Parse(time.RFC3339, message.Created)
 }

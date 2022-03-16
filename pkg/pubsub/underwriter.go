@@ -116,11 +116,13 @@ func (uw *Underwriter) WriteUser() error {
 			return err
 		}
 		//Save to DB
-		return uw.db.Batch(func(tx *bolt.Tx) error {
+		if err := uw.db.Batch(func(tx *bolt.Tx) error {
 			b := tx.Bucket([]byte("user"))
 			err := b.Put([]byte(user.UsernameHash), encUser.Bytes())
 			return err
-		})
+		}); err != nil {
+			return err
+		}
 	}
 	return nil
 }
@@ -156,17 +158,19 @@ func (uw *Underwriter) WriteMessage() error {
 		loc := path.Join(dirStructure, fmt.Sprintf("/%d.json", messageStruct.Message.ID))
 
 		if err := os.MkdirAll(dirStructure, 0766); err != nil {
-			return fmt.Errorf("Error creating dir structure in Underwriter.WriteMessage: %v", err)
+			return fmt.Errorf("error creating dir structure in Underwriter.WriteMessage: %v", err)
 		}
 		file, err := os.Create(loc)
 		if err != nil {
-			return fmt.Errorf("Error creating message file (%s) in Underwriter.WriteMessage: %v", loc, err)
+			return fmt.Errorf("error creating message file (%s) in Underwriter.WriteMessage: %v", loc, err)
 		}
-		defer file.Close()
 		//write Json data to file - so human readable
 		enc := json.NewEncoder(file)
 		if err := enc.Encode(messageStruct.Message); err != nil {
-			return fmt.Errorf("Error encoding Message in Underwriter.WriteMessage: %v", err)
+			return fmt.Errorf("error encoding Message in Underwriter.WriteMessage: %v", err)
+		}
+		if err := file.Close(); err != nil {
+			return err
 		}
 	}
 	return nil
@@ -280,7 +284,7 @@ func (uw *Underwriter) DeleteSubscriber() error {
 			b := tx.Bucket([]byte("sub"))
 			if subsc.MessageID >= 0 {
 				if err := b.Delete([]byte(fmt.Sprintf("%s/%d/%s", subsc.TopicName, subsc.MessageID, subsc.SubscriberID))); err != nil {
-					return fmt.Errorf("Error issuing Subscriber Delete in BoltDB:%v", err)
+					return fmt.Errorf("error issuing Subscriber Delete in BoltDB:%v", err)
 				}
 				return nil
 			}
@@ -292,7 +296,7 @@ func (uw *Underwriter) DeleteSubscriber() error {
 				//check suffix
 				if strings.HasSuffix(string(k), subsc.SubscriberID) {
 					if err := b.Delete(k); err != nil {
-						return fmt.Errorf("Error doing delete of prefix/suffix match in Subscriber Delete in BoltDB :%v", err)
+						return fmt.Errorf("error doing delete of prefix/suffix match in Subscriber Delete in BoltDB :%v", err)
 					}
 				}
 
@@ -322,7 +326,7 @@ func (uw *Underwriter) DeleteMessage() error {
 func messageStreamer(basePath string, streamer chan Streamer) {
 	files, err := os.ReadDir(basePath)
 	if err != nil { //Better error handling required
-		log.Printf("%v", fmt.Errorf("Error reading directory: %v", err))
+		log.Printf("%v", fmt.Errorf("error reading directory: %v", err))
 		return
 	}
 	for _, file := range files {
@@ -333,19 +337,19 @@ func messageStreamer(basePath string, streamer chan Streamer) {
 		}
 		f, err := os.Open(path.Join(basePath, file.Name()))
 		if err != nil { //Better error handling required
-			log.Printf("%v", fmt.Errorf("Error reading directory in messageStreamer: %v", err))
+			log.Printf("%v", fmt.Errorf("error reading directory in messageStreamer: %v", err))
 			return
 		}
 		//pull content
 		content, err := io.ReadAll(f)
 		if err != nil { //Better error handling required
-			log.Printf("%v", fmt.Errorf("Error reading directory in messageStreamer: %v", err))
+			log.Printf("%v", fmt.Errorf("error reading directory in messageStreamer: %v", err))
 			return
 		}
 		//unmarshal from JSON
 		m := &Message{}
 		if err := json.Unmarshal(content, m); err != nil {
-			log.Printf("%v", fmt.Errorf("Error unmarshaling JSON in messageStreamer: %v", err))
+			log.Printf("%v", fmt.Errorf("error unmarshaling JSON in messageStreamer: %v", err))
 			return
 		}
 		//Stream out
@@ -354,7 +358,7 @@ func messageStreamer(basePath string, streamer chan Streamer) {
 			Unit: m,
 		}
 		if err := f.Close(); err != nil {
-			log.Printf("%v", fmt.Errorf("Error closing file in messageStreamer: %v", err))
+			log.Printf("%v", fmt.Errorf("error closing file in messageStreamer: %v", err))
 			return
 		}
 	}
