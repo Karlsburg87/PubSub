@@ -177,6 +177,16 @@ Note that the Dockerfile comes with best practise defaults that can be overridde
 1. Add a pushURL/WebhookURL to subscribe as a push subscriber. Otherwise you will have to pull the message via retrieval endpoint with a messageID to get the next message. You cannot mix methods or change subscription type after initial subscripton, without first unsubscribing and subscribing again.
     1. You can do this in one action by using the `/topics/topic/subscribe` endpoint. However the subscription pointer will move to the Topic's head position and previous messages may become unobtainable.
 
+## Gotchas
+-Head pointer positions are zero indexed and 1 above the number of messages the Topic has had published to it. This is in line with message IDs which are also zero indexed. So a topic with no messages will have pointer head at 0. But a Topic with 10 messages will have a PointerHead at position 10 with the latest message having an ID of 9. Subscriptions at Pointer reference 10 are awaiting message with ID 10 which will be the next message to be published.    
+-The user that creates a new topic is automatically subscribed to it and is at the head pointer position. Therefore it is keeping the topic alive even if there are no other subscribers as it can never be garbage collected 
+- Subscriptions at head pointer position are not garbage collected as they are considered active and awaiting new messages. This also keeps the User alive.
+- The creator subscriber is automatically moved to the pointerHead on every write without needing to consume and acknoledge the message.
+- Even if unsubscribed, the creator subuser is resubscribed on each write to the topic. 
+- If a user has unsubscribed from a topic it has created and does not resubscribe or write by the time the application is stopped, the restore functionality will default the creator of the Topic to the new superadmin rather than back to the original creator. This means the original creator can not write further messages to the Topic. This is intentional behaviour akin to restoring a Topic in archive mode and preventing resulting object orphening or unexpected  cascading of object deletions by the garbage collector (Topic > Subscribers > Users not subscribed to other Topics)
+- On restore, the new superAdmin is automatically subscribed to everything at pointerHead 0. As no Topics without messages are restored this will mean the superAdmin User will be garbage collected if it does not consume messages -which it is unlikely to do. So, if you are wondering what the spate of subscriber deletions of the same ID are after a restore - it is propably your superAdmin subscriptions being cleaned up. 
+- To delete a topic, all subscribers including the creator must unsubscribe if their subscription pointer is at the pointerHead position. Subscriptions which are inactive in other pointer positions where messages cannot be delivered are garbage collected anyway.
+
 ## Roadmap
 - [x] Timed garbage collection of stale subscribers by first tombstoning subscribers preventing deletion of tickets over 50 places behind PointerHead, then deleting them on second pass if they are still there after a certain amount of time. Designed to prevent inactive subscribers forcing long term storage of messages (to maintain a stable service)
 - [x] Timed pushing of messages to Webhook URLs
@@ -193,5 +203,5 @@ Note that the Dockerfile comes with best practise defaults that can be overridde
 - [ ] Benchmarking
 - [ ] Unit tests
 - [ ] Inform Push subscribers when their subscriptions have been garbage collected as this may be due to low frequency publishing rates of the Topic rather than inactive subscribers.
-- [ ] Add ability to config the tombstoner deadlines.
+- [x] Add ability to config the tombstoner deadlines.
 - [x] Fix User already exists bug that effeects users after restore from persistance layer 
